@@ -594,6 +594,7 @@ c
 c
       double precision delta,delta_default
       double precision s6_in
+      double precision sr_in
 c
       oprint = util_print('vdw', print_medium)
       oprinth = util_print('vdw high', print_high)
@@ -655,8 +656,6 @@ c
 c
 c     Read in some user defined parameters
 c
-      if (.not.rtdb_get(rtdb,'dft:vdw_sr',MT_DBL,1,sr))
-     &      sr = 1.0d0
 c
       if (.not.rtdb_get(rtdb,'dft:vdwalpha',MT_DBL,1,alpha))
      &      alpha = 20.0d0
@@ -673,10 +672,15 @@ c
         if(.not.rtdb_get(rtdb,'dft:vdw_a1',mt_dbl,1,a1)) a1=0d0
         if(.not.rtdb_get(rtdb,'dft:vdw_a2',mt_dbl,1,a2)) a2=0d0
         call get_scaling_fac(s6,s8,sr6,sr8,a1,a2)
+        if(rtdb_get(rtdb, 'dft:vdw_sr', mt_dbl, 1, sr_in)) then
+           sr=sr_in
+           if(ga_nodeid().eq.0)write(6,*) ' WARNING: vdw sr set = ',sr
+        endif
         if(rtdb_get(rtdb, 'dft:vdw', mt_dbl, 1, s6_in)) then
            s6=s6_in
            if(ga_nodeid().eq.0)write(6,*) ' WARNING: vdw s6 set = ',s6
         endif
+
       else
 c       get the scaling factors here (just being paranoid)
         call nwxc_get_disp(ivdw,s6,s8,sr6,sr8,a1,a2,alpha)
