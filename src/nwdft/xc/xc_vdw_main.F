@@ -448,7 +448,6 @@ c
       implicit none
 #include "errquit.fh"
 #include "xc_vdw.fh"
-#include "stdio.fh"
       double precision s6     !< [Input] The \f$s_6\f$ coefficient
       double precision s8     !< [Input] The \f$s_8\f$ coefficient
       double precision sr6    !< [Input] The \f$s_{r,6}\f$ coefficient
@@ -492,7 +491,6 @@ c     protect from NaNs caused by bqs
                if(rij.gt.1d30.or.abs(rij).lt.1d-4) then
                    xc_vdw_e=0d0
                else
-               write(luout,*) ' sr =',sr
                xc_vdw_e=xc_vdw_e-c6ij_sk(i,j,z)*
      *            fdmp(rij,sr*(r0(z(i))+r0(z(j))))*
      *            (rij)**(-6.0d0)
