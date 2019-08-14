@@ -492,7 +492,7 @@ c     protect from NaNs caused by bqs
                if(rij.gt.1d30.or.abs(rij).lt.1d-4) then
                    xc_vdw_e=0d0
                else
-               write(luout,*) ' s6 =',sr
+               write(luout,*) ' sr =',sr
                xc_vdw_e=xc_vdw_e-c6ij_sk(i,j,z)*
      *            fdmp(rij,sr*(r0(z(i))+r0(z(j))))*
      *            (rij)**(-6.0d0)
@@ -676,6 +676,9 @@ c
         call get_scaling_fac(s6,s8,sr6,sr8,a1,a2)
         if(rtdb_get(rtdb, 'sr', mt_dbl, 1, sr_in)) then
            sr=sr_in
+           if(ga_nodeid().eq.0)write(6,*) ' WARNING: vdw sr set = ',sr
+        else 
+           sr=1.0d0
            if(ga_nodeid().eq.0)write(6,*) ' WARNING: vdw sr set = ',sr
         endif
         if(rtdb_get(rtdb, 'dft:vdw', mt_dbl, 1, s6_in)) then
