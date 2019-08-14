@@ -491,6 +491,7 @@ c     protect from NaNs caused by bqs
                if(rij.gt.1d30.or.abs(rij).lt.1d-4) then
                    xc_vdw_e=0d0
                else
+               write(luout,*) ' s6 =',sr
                xc_vdw_e=xc_vdw_e-c6ij_sk(i,j,z)*
      *            fdmp(rij,sr*(r0(z(i))+r0(z(j))))*
      *            (rij)**(-6.0d0)
@@ -708,8 +709,9 @@ c
             write(luout,*)
      D           '     ---------------------'
            if (ivdw.eq.1.or.ivdw.eq.2) then
-              write(luout,222) s6, evdw
+              write(luout,222) sr,s6, evdw
  222  format(/
+     &     '          sr scale factor :', f22.12/
      &     '          s6 scale factor :', f22.12/
      &     '              vdW contrib :', f22.12/)
            endif
