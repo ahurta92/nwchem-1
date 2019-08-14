@@ -1,7 +1,7 @@
 c
 c     $Id$
 c
-      double precision c6(128),c8,r0(128),alpha
+      double precision c6(128),c8,r0(128),alpha,sr
       integer max_elements,max_cn
       parameter (max_elements=94)
       parameter (max_cn=5)
@@ -18,4 +18,4 @@ c
       integer ivdw,maxcn(0:max_elements)
       common /xc_vdwc/c6,c8,r0,alpha
       common /xc_vdw3/Qatom,cov_table,r0AB,c6ab
-      common /xc_vdwi/ivdw,maxcn
+      common /xc_vdwi/ivdw,maxcn,sr

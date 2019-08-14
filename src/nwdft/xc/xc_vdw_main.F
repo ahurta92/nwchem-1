@@ -458,6 +458,9 @@ c
       double precision x(3,n) !< [Input] The atomic coordinates
       integer z(n)            !< [Input] The atomic numbers of the atoms
 c
+c      Sr will be the scaling coefficient to multiply the Vander Waals radius
+      if (.not.rtdb_get(rtdb,'dft:sr',MT_INT,1,ivdw))
+            &      sr= 1
       integer i,j
       integer i6, i8
       parameter(i6 = 6)
@@ -490,7 +493,7 @@ c     protect from NaNs caused by bqs
                    xc_vdw_e=0d0
                else
                xc_vdw_e=xc_vdw_e-c6ij_sk(i,j,z)*
-     *            fdmp(rij,r0(z(i))+r0(z(j)))*
+     *            fdmp(rij,sr*(r0(z(i))+r0(z(j))))*
      *            (rij)**(-6.0d0)
                endif
             endif
