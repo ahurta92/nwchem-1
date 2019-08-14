@@ -672,7 +672,7 @@ c
         if(.not.rtdb_get(rtdb,'dft:vdw_a1',mt_dbl,1,a1)) a1=0d0
         if(.not.rtdb_get(rtdb,'dft:vdw_a2',mt_dbl,1,a2)) a2=0d0
         call get_scaling_fac(s6,s8,sr6,sr8,a1,a2)
-        if(rtdb_get(rtdb, 'dft:vdw_sr', mt_dbl, 1, sr_in)) then
+        if(rtdb_get(rtdb, 'sr', mt_dbl, 1, sr_in)) then
            sr=sr_in
            if(ga_nodeid().eq.0)write(6,*) ' WARNING: vdw sr set = ',sr
         endif
