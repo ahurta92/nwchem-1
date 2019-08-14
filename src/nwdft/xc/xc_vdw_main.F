@@ -448,6 +448,7 @@ c
       implicit none
 #include "errquit.fh"
 #include "xc_vdw.fh"
+#include "stdio.fh"
       double precision s6     !< [Input] The \f$s_6\f$ coefficient
       double precision s8     !< [Input] The \f$s_8\f$ coefficient
       double precision sr6    !< [Input] The \f$s_{r,6}\f$ coefficient
