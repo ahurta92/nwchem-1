@@ -16,6 +16,6 @@ c
 c     Entry 0 is needed in MAXCN to deal with Bq and X centers
 c
       integer ivdw,maxcn(0:max_elements)
-      common /xc_vdwc/c6,c8,r0,alpha
+      common /xc_vdwc/c6,c8,r0,alpha,sr
       common /xc_vdw3/Qatom,cov_table,r0AB,c6ab
-      common /xc_vdwi/ivdw,maxcn,sr
+      common /xc_vdwi/ivdw,maxcn
