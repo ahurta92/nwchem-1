@@ -460,7 +460,7 @@ c
 c
 c      Sr will be the scaling coefficient to multiply the Vander Waals radius
       if (.not.rtdb_get(rtdb,'dft:sr',MT_INT,1,ivdw))
-            &      sr= 1
+     &      sr= 1
       integer i,j
       integer i6, i8
       parameter(i6 = 6)
