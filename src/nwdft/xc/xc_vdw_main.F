@@ -448,8 +448,6 @@ c
       implicit none
 #include "errquit.fh"
 #include "xc_vdw.fh"
-#include "global.fh"
-#include "rtdb.fh"
       double precision s6     !< [Input] The \f$s_6\f$ coefficient
       double precision s8     !< [Input] The \f$s_8\f$ coefficient
       double precision sr6    !< [Input] The \f$s_{r,6}\f$ coefficient
@@ -461,8 +459,6 @@ c
       integer z(n)            !< [Input] The atomic numbers of the atoms
 c
 c      Sr will be the scaling coefficient to multiply the Vander Waals radius
-      if (.not.rtdb_get(rtdb,'dft:sr',MT_INT,1,ivdw))
-     &      sr= 1
 
       integer i,j
       integer i6, i8
@@ -658,6 +654,9 @@ c
      &   call errquit('xcvdw: vwdinit failed',0, 0)
 c
 c     Read in some user defined parameters
+c
+      if (.not.rtdb_get(rtdb,'dft:vdw_sr',MT_DBL,1,sr))
+     &      sr = 1.0d0
 c
       if (.not.rtdb_get(rtdb,'dft:vdwalpha',MT_DBL,1,alpha))
      &      alpha = 20.0d0
