@@ -100,7 +100,7 @@ c
      +            (x(2,i)-x(2,j))**2 +
      +            (x(3,i)-x(3,j))**2)
                nwxc_vdw_e=nwxc_vdw_e-nwxc_c6ij_sk(i,j,z)*
-     *            nwxc_fdmp(rij,r0(z(i))+r0(z(j)))*
+     *            nwxc_fdmp(rij,sr*(r0(z(i))+r0(z(j))))*
      *            (rij)**(-6.0d0)
             enddo
           endif

@@ -692,6 +692,7 @@ c
            write(luout,*) ' sr6 =',sr6
            write(luout,*) ' sr8 =',sr8
            write(luout,*) ' alpha  =',alpha
+           write(luout,*) ' sr =',sr
            write(luout,*) ' ivdw  =',ivdw
          endif
 c

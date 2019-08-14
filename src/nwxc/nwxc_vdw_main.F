@@ -81,8 +81,8 @@ cDEBUG
       write(*,*)'nwxc_vdw: after nwxc_get_disp: s6,s8,sr6,sr8,a1,a2=',
      &          s6,s8,sr6,sr8,a1,a2
 cDEBUG
-c     if (.not.rtdb_get(rtdb,'dft:vdwalpha',MT_DBL,1,alpha))
-c    &      alpha = 20.0d0
+     if (.not.rtdb_get(rtdb,'sr',MT_DBL,1,sr))
+    &      alpha = 1.0d0
 c     if (ivdw.eq.3) alpha = 14.0d0
 c
 c     Get proper scaling factors depending on Grimme dispersion version
@@ -97,6 +97,7 @@ c
 c     Compute energy contribution
 c
         if(oprinth.and.ga_nodeid().eq.0) then
+           write(luout,*) ' sR     =',sr
            write(luout,*) ' s6     =',s6
            write(luout,*) ' s8     =',s8
            write(luout,*) ' sr6    =',sr6
