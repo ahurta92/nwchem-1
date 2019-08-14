@@ -448,6 +448,8 @@ c
       implicit none
 #include "errquit.fh"
 #include "xc_vdw.fh"
+#include "global.fh"
+#include "rtdb.fh"
       double precision s6     !< [Input] The \f$s_6\f$ coefficient
       double precision s8     !< [Input] The \f$s_8\f$ coefficient
       double precision sr6    !< [Input] The \f$s_{r,6}\f$ coefficient
@@ -461,6 +463,7 @@ c
 c      Sr will be the scaling coefficient to multiply the Vander Waals radius
       if (.not.rtdb_get(rtdb,'dft:sr',MT_INT,1,ivdw))
      &      sr= 1
+
       integer i,j
       integer i6, i8
       parameter(i6 = 6)
