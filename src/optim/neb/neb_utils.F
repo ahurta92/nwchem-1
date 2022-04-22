@@ -20,6 +20,7 @@
       integer i,index,index_p,nbeads,nion,ng
       integer e(2),c(2),r(2)
       real*8  dist
+      real*8  amat(3,3)
      
 *     **** external functions ****
       integer  size_bead_list,nion_bead_list
@@ -30,6 +31,8 @@
       nbeads = size_bead_list(bead_list)
       nion   = nion_bead_list(bead_list,1)
       ng     = 3*nion*nbeads
+
+      call amatrix_get_bead_list(bead_list,1,amat)
 
       value  = MA_alloc_get(mt_dbl,nbeads,'e',e(2),e(1))
       value  = value.and.
@@ -48,11 +51,14 @@
       do i=1,(nbeads-1)
          index   = (i-1)*3*nion + 1
          index_p = (i  )*3*nion + 1
-         call dcopy(3*nion,dbl_mb(c(1)+index_p-1),1,
-     >                     dbl_mb(r(1)),1)
-         call daxpy(3*nion,(-1.0d0),
-     >              dbl_mb(c(1)+index-1),1,
-     >              dbl_mb(r(1)),   1)
+         call neb_cdiff(nion,dbl_mb(c(1)+index_p-1), 
+     >                       dbl_mb(c(1)+index-1),
+     >                       amat,dbl_mb(r(1)))
+c         call dcopy(3*nion,dbl_mb(c(1)+index_p-1),1,
+c     >                     dbl_mb(r(1)),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >              dbl_mb(c(1)+index-1),1,
+c     >              dbl_mb(r(1)),   1)
          dist = dsqrt(ddot(3*nion,dbl_mb(r(1)),1,
      >                            dbl_mb(r(1)),1))
          dpath = dpath + dist
@@ -72,7 +78,8 @@
 *     *             neb_gradient_get                *
 *     *                                             *
 *     ***********************************************
-      subroutine neb_gradient_get(bead_list,kbeads,c,e,t,g)
+      subroutine neb_gradient_get(bead_list,kbeads,c,e,t,g,
+     >                            freeze1,freezen)
       implicit none
       character*(*) bead_list
       real*8 kbeads
@@ -80,10 +87,12 @@
       real*8 e(*)
       real*8 t(*)
       real*8 g(*)
+      logical freeze1,freezen
 
 *     **** local variables ****
-      integer i,index,nbeads,nion
+      integer i,index,nbeads,nion,istart,iend
       real*8  k,norm
+      real*8  amat(3,3)
      
 *     **** external functions ****
       integer  size_bead_list,nion_bead_list
@@ -97,12 +106,19 @@
       nbeads = size_bead_list(bead_list)
       nion   = nion_bead_list(bead_list,1)
 
+      call amatrix_get_bead_list(bead_list,1,amat)
+
 *     *** get the tangent ****
-      call neb_tangent(nbeads,nion,c,e,t)
+      call neb_tangent(nbeads,nion,c,e,t,amat)
 
 *     **** normal gradient |g> = |g> - |t><t|g> ****
       call dcopy(nbeads*3*nion,0.0d0,0,g,1)
-      do i=2,(nbeads-1)
+      !do i=2,(nbeads-1)
+      istart = 2
+      iend = nbeads-1
+      if (.not.freeze1) istart = 1 
+      if (.not.freezen) iend    = nbeads
+      do i=istart,iend
          index = (i-1)*3*nion + 1
          call gradient_get_bead_list(bead_list,i,g(index))
          norm = ddot(3*nion,t(index),1,g(index),1)
@@ -112,7 +128,7 @@
       end do
 
 *     *** add to normal gradient the tangent spring gradient *** 
-      call neb_add_spring_gradient(nbeads,nion,c,t,k,g)
+      call neb_add_spring_gradient(nbeads,nion,c,t,k,g,amat)
       
       return
       end
@@ -166,20 +182,84 @@
       return
       end
      
+
+*     ***********************************************
+*     *                                             *
+*     *                  neb_cdiff                  *
+*     *                                             *
+*     ***********************************************
   
+      subroutine neb_cdiff(nion,c2,c1,amat,c2mc1)
+      implicit none
+      integer nion
+      real*8 c1(3,*),c2(3,*)
+      real*8 amat(3,3)
+      real*8 c2mc1(3,*)
+
+*     **** local variables ****
+      logical isperiodic
+      integer ii,i1,i2,i3
+      real*8 dx,dy,dz,dx0,dy0,dz0,dxf,dyf,dzf,rr,rrmin
+      
+      rr = 0.0d0
+      do i2=1,3
+      do i1=1,3
+         rr = rr + dabs(amat(i1,i2))
+      end do
+      end do
+      isperiodic = (rr.gt.3.001d0)
+
+      do ii=1,nion
+         dx0 = c2(1,ii) - c1(1,ii)
+         dy0 = c2(2,ii) - c1(2,ii)
+         dz0 = c2(3,ii) - c1(3,ii)
+         dxf = dx0
+         dyf = dy0
+         dzf = dz0
+         if (isperiodic) then
+            rrmin = dx0*dx0 + dy0*dy0 + dz0*dz0
+            do i3=-2,2
+            do i2=-2,2
+            do i1=-2,2
+               dx = dx0 + amat(1,1)*i1 + amat(1,2)*i2 + amat(1,3)*i3
+               dy = dy0 + amat(2,1)*i1 + amat(2,2)*i2 + amat(2,3)*i3
+               dz = dz0 + amat(3,1)*i1 + amat(3,2)*i2 + amat(3,3)*i3
+               rr = dx*dx + dy*dy + dz*dz
+               if (rr.lt.rrmin) then
+                  rrmin = rr
+                  dxf = dx
+                  dyf = dy
+                  dzf = dz
+               end if
+            end do
+            end do
+            end do
+         end if
+
+         c2mc1(1,ii) = dxf
+         c2mc1(2,ii) = dyf
+         c2mc1(3,ii) = dzf
+      end do
+
+      return
+      end
+
+
+
 
 *     ***********************************************
 *     *                                             *
 *     *             neb_add_spring_gradient         *
 *     *                                             *
 *     ***********************************************
-      subroutine neb_add_spring_gradient(nbeads,nion,c,t,k,gs)
+      subroutine neb_add_spring_gradient(nbeads,nion,c,t,k,gs,amat)
       implicit none
       integer nbeads,nion
       real*8 c(*)
       real*8 t(*)
       real*8 k
       real*8 gs(*)
+      real*8 amat(3,3)
 
 *     **** local variables ****
       integer i,index,index_m,index_p
@@ -190,7 +270,6 @@
       real*8   ddot
       external ddot
 
-
       rm = 1
       rp = (nbeads-1)*3*nion + 1
       
@@ -198,14 +277,16 @@
          index   = (i-1)*3*nion + 1
          index_m = (i-2)*3*nion + 1
          index_p = (i  )*3*nion + 1
-         call dcopy(3*nion,c(index),1,t(rm),1)
-         call daxpy(3*nion,(-1.0d0),
-     >               c(index_m),1,
-     >               t(rm),     1)
-         call dcopy(3*nion,c(index_p),1,t(rp),1)
-         call daxpy(3*nion,(-1.0d0),
-     >               c(index),1,
-     >               t(rp),   1)
+         call neb_cdiff(nion,c(index),c(index_m),amat,t(rm))
+         call neb_cdiff(nion,c(index_p),c(index),amat,t(rp))
+c         call dcopy(3*nion,c(index),1,t(rm),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >               c(index_m),1,
+c     >               t(rm),     1)
+c         call dcopy(3*nion,c(index_p),1,t(rp),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >               c(index),1,
+c     >               t(rp),   1)
          normm = ddot(3*nion,t(rm),1,t(rm),1)
          normp = ddot(3*nion,t(rp),1,t(rp),1)
          normp = -k*(dsqrt(normp) - dsqrt(normm))
@@ -224,12 +305,13 @@
 *     *             neb_tangent                     *
 *     *                                             *
 *     ***********************************************
-      subroutine neb_tangent(nbeads,nion,c,e,t)
+      subroutine neb_tangent(nbeads,nion,c,e,t,amat)
       implicit none
       integer nbeads,nion
       real*8 c(*)
       real*8 e(*)
       real*8 t(*)
+      real*8 amat(3,3)
 
 *     **** local variables ****
       integer i,index,index_m,index_p
@@ -247,14 +329,17 @@
          index   = (i-1)*3*nion + 1
          index_m = (i-2)*3*nion + 1
          index_p = (i  )*3*nion + 1
-         call dcopy(3*nion,c(index),1,t(rm),1)
-         call daxpy(3*nion,(-1.0d0),
-     >               c(index_m),1,
-     >               t(rm),     1)
-         call dcopy(3*nion,c(index_p),1,t(rp),1)
-         call daxpy(3*nion,(-1.0d0),
-     >               c(index),1,
-     >               t(rp),   1)
+         call neb_cdiff(nion,c(index),c(index_m),amat,t(rm))
+         call neb_cdiff(nion,c(index_p),c(index),amat,t(rp))
+
+c         call dcopy(3*nion,c(index),1,t(rm),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >               c(index_m),1,
+c     >               t(rm),     1)
+c         call dcopy(3*nion,c(index_p),1,t(rp),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >               c(index),1,
+c     >               t(rp),   1)
 
          if   ( ((e(i+1)-e(i)).gt.1.0e-2).and.
      >          ((e(i)-e(i-1)).gt.1.0d-2) ) then
@@ -330,6 +415,7 @@
       integer nbeads, nion, rm, rp
       real*8  k,norm, normm, normp
       real*8  sprf, sprnorm
+      real*8  amat(3,3)
      
 *     **** external functions ****
       integer  size_bead_list,nion_bead_list
@@ -340,13 +426,14 @@
       k = kbeads
       nbeads = size_bead_list(bead_list)
       nion   = nion_bead_list(bead_list,1)
+      call amatrix_get_bead_list(bead_list,1,amat)
 
       rm = 1
       rp = (nbeads-1)*3*nion + 1
 
 
 *     *** get the tangent ****
-      call neb_tangent(nbeads,nion,c,e,t)
+      call neb_tangent(nbeads,nion,c,e,t,amat)
 
 
 *    *** RRR project out tangent PES force
@@ -387,15 +474,17 @@
           
 
 *    *** RRR calculate spring forces
-                  
-                 call dcopy(3*nion,c(index),1,t(rm),1)
-                 call daxpy(3*nion,(-1.0d0),
-     >               c(index_m),1,
-     >               t(rm),     1)
-                 call dcopy(3*nion,c(index_p),1,t(rp),1)
-                 call daxpy(3*nion,(-1.0d0),
-     >               c(index),1,
-     >               t(rp),   1)
+            call neb_cdiff(nion,c(index),c(index_m),amat,t(rm))
+            call neb_cdiff(nion,c(index_p),c(index),amat,t(rp))
+c                 call dcopy(3*nion,c(index),1,t(rm),1)
+c                 call daxpy(3*nion,(-1.0d0),
+c     >               c(index_m),1,
+c     >               t(rm),     1)
+c                 call dcopy(3*nion,c(index_p),1,t(rp),1)
+c                 call daxpy(3*nion,(-1.0d0),
+c     >               c(index),1,
+c     >               t(rp),   1)
+
                  normm = ddot(3*nion,t(rm),1,t(rm),1)
                  normp = ddot(3*nion,t(rp),1,t(rp),1)
                  sprf = -k*(dsqrt(normp) - dsqrt(normm))
@@ -429,12 +518,13 @@
 *    *** RRR  tan goes from e(i+1) to e(e-1)
     
 
-      subroutine neb_tangent1(nbeads,nion,c,e,t)
+      subroutine neb_tangent1(nbeads,nion,c,e,t,amat)
       implicit none
       integer nbeads,nion
       real*8 c(*)
       real*8 e(*)
       real*8 t(*)
+      real*8 amat(3,3)
 
 *     **** local variables ****
       integer i,index,index_m,index_p
@@ -452,14 +542,17 @@
          index   = (i-1)*3*nion + 1
          index_m = (i-2)*3*nion + 1
          index_p = (i  )*3*nion + 1
-         call dcopy(3*nion,c(index),1,t(rm),1)
-         call daxpy(3*nion,(-1.0d0),
-     >               c(index_m),1,
-     >               t(rm),     1)
-         call dcopy(3*nion,c(index_p),1,t(rp),1)
-         call daxpy(3*nion,(-1.0d0),
-     >               c(index),1,
-     >               t(rp),   1)
+         call neb_cdiff(nion,c(index),c(index_m),amat,t(rm))
+         call neb_cdiff(nion,c(index_p),c(index),amat,t(rp))
+
+c         call dcopy(3*nion,c(index),1,t(rm),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >               c(index_m),1,
+c     >               t(rm),     1)
+c         call dcopy(3*nion,c(index_p),1,t(rp),1)
+c         call daxpy(3*nion,(-1.0d0),
+c     >               c(index),1,
+c     >               t(rp),   1)
 
          if      ((e(i+1).gt.e(i)).and.(e(i).gt.e(i-1))) then
             call dcopy(3*nion,t(rp),1,t(index),1)
@@ -541,6 +634,7 @@
 
 *     **** local variables ****
       integer i,index,nbeads,nion
+      real*8 amat(3,3)
 
 *     **** external functions ****
       integer  size_bead_list,nion_bead_list
@@ -696,11 +790,11 @@ c
 #include "stdio.fh"
 
 *     **** local variables ****
-      logical value,impose,oprint,hasmiddle
+      logical value,impose,oprint,hasmiddle,hasamat
       integer i,geom,geomlen,movecslen,nion,nfit,i2,i3,pathguess
       integer bead_listlen
       integer r1(2),r2(2),r3(2),rmid(2),ifit(2),wfit(2),rcoords(2)
-      real*8  t,rms1,rms2
+      real*8  t,rms1,rms2,amat(3,3),rr
       character*255 geom_name,movecs_name
 
 *     **** external functions ****
@@ -723,6 +817,22 @@ c
       end if
 
       value = value.and.geom_ncent(geom,nion)
+
+*     **** get amatrix ***
+      if (.not.geom_amatrix_get(geom,amat)) then
+         call dcopy(9,0.0d0,0,amat,1)
+      end if
+      rr = 0.0d0
+      do i3=1,3
+      do i2=1,3
+         rr = rr + dabs(amat(i2,i3))
+      end do
+      end do
+      hasamat = (rr.gt.3.001d0)
+
+
+
+
       value = value.and.geom_destroy(geom)
       if (.not.value) call errquit('neb_initial_path failed',0,0)
 
@@ -737,7 +847,9 @@ c
 
       !*** try neb_end, then endgeom ****
       if (.not.geom_rtdb_load(rtdb,geom,'neb_end')) then
-         value = value.and.geom_rtdb_load(rtdb,geom,'endgeom')
+         if (.not.geom_rtdb_load(rtdb,geom,'ENDGEOM')) then
+            value = value.and.geom_rtdb_load(rtdb,geom,'endgeom')
+         endif
       end if
       value = value.and.geom_cart_coords_get(geom,dbl_mb(r2(1)))
 
@@ -772,7 +884,7 @@ c
      >      " neb_middle (midgeom) geometry -->",
      >      " neb_end (endgeom) geometry"
          else
-            write(luout,'(A)')    
+            write(luout,'(2A)')    
      >      "    + neb_start (geometry) geometry -->",
      >      " neb_end (endgeom) geometry"
          end if
@@ -842,7 +954,15 @@ c
         call dcopy(3*nion,dbl_mb(r2(1)),1,
      >            dbl_mb(rcoords(1)+3*nion*(nbeads-1)),1) 
 
-        call zts_guess(nion,nbeads,i2,dbl_mb(rcoords(1)),pathguess)
+CCCCCC NEED TO FIX CCCC
+c        if (hasamat) then
+c           call zts_guess_periodic(nion,nbeads,i2,dbl_mb(rcoords(1)),
+c     >                             pathguess,amat)
+c        else
+c          call zts_guess(nion,nbeads,i2,dbl_mb(rcoords(1)),pathguess)
+c        end if
+CCCCCC NEED TO FIX CCCC
+         call zts_guess(nion,nbeads,i2,dbl_mb(rcoords(1)),pathguess)
 
         do i=1,nbeads
           call dcopy(3*nion,dbl_mb(rcoords(1)+3*nion*(i-1)),1,
@@ -909,7 +1029,12 @@ c        end do
         call dcopy(3*nion,dbl_mb(r2(1)),1,
      >            dbl_mb(rcoords(1)+3*nion*(nbeads-1)),1) 
 
-        call zts_guessall(nion,nbeads,dbl_mb(rcoords(1)),geom)
+        if (hasamat) then
+           call zts_guessall_periodic(nion,nbeads,dbl_mb(rcoords(1)),
+     >                                geom,amat)
+        else
+           call zts_guessall(nion,nbeads,dbl_mb(rcoords(1)),geom)
+        end if
 
         do i=1,nbeads
 c          t = (i-1)/dble(nbeads-1)
@@ -1146,7 +1271,7 @@ c     *** choosing Polac-Ribiere coeff ***
       real*8   ddot
       external ddot
 
-*     **** compute rho(k) = 1/y(:,k)' * s(:,k) ****
+*     **** compute rho(k) = 1/(y(:,k)' * s(:,k)) ****
       do k=1,m-1
          tmp =       ddot(n,x(1,k+1),1,g(1,k+1),1)
          tmp = tmp - ddot(n,x(1,k+1),1,g(1,k),  1)
@@ -1179,6 +1304,77 @@ c     *** choosing Polac-Ribiere coeff ***
 
       return
       end
+
+*     *****************************************
+*     *                                       *
+*     *          neb_lmbfgs_periodic          *
+*     *                                       *
+*     *****************************************
+      subroutine neb_lmbfgs_periodic(n,m,x,g,hg,amatrix,s,y)
+      implicit none
+      integer n,m
+      real*8 x(n,m)
+      real*8 g(n,m)
+      real*8 hg(n)
+      real*8 amatrix(3,3)
+      real*8 s(*),y(*)
+
+*     **** local variables ****
+      integer MASTER
+      parameter (MASTER=0)
+
+      logical goodrho
+      integer k,nion
+      real*8 rho(25),alpha(25),beta(25)
+      real*8 tmp
+
+*     **** external functions ****
+      real*8   ddot
+      external ddot
+
+      nion = n/3
+
+      goodrho = .true.
+
+*     **** compute rho(k) = 1/(y(:,k)' * s(:,k)) ****
+      do k=1,m-1
+         call dcopy(n,g(1,k+1),1,y,1)
+         call daxpy(n,-1.0d0,g(1,k),1,y,1)
+         call neb_cdiff(nion,x(1,k+1),x(1,k),amatrix,s)
+
+         tmp = ddot(n,y,1,s,1)
+         if (dabs(tmp).gt.1.0d-6) then
+             rho(k) = 1.0d0/tmp
+         else
+             rho(k) = 0.0d0
+             goodrho = .false.
+         end if
+         !if (ga_nodeid().eq.MASTER) write(*,*) "k,rho=",k,rho(k)
+      end do
+
+      call dcopy(n,g(1,m),1,hg,1)
+
+      if (goodrho) then
+         do k=m-1,1,-1
+            call dcopy(n,g(1,k+1),1,y,1)
+            call daxpy(n,-1.0d0,g(1,k),1,y,1)
+            call neb_cdiff(nion,x(1,k+1),x(1,k),amatrix,s)
+            alpha(k) = rho(k)*ddot(n,s,1,hg,1)
+            call daxpy(n,(-alpha(k)),y,1,hg,1)
+         end do
+
+         do k=1,m-1
+            call dcopy(n,g(1,k+1),1,y,1)
+            call daxpy(n,-1.0d0,g(1,k),1,y,1)
+            call neb_cdiff(nion,x(1,k+1),x(1,k),amatrix,s)
+            beta(k) = rho(k)*ddot(n,y,1,hg,1)
+            call daxpy(n,(alpha(k)-beta(k)),s,1,hg,1)
+         end do
+      end if
+
+      return
+      end
+
 
 
 *     ***********************************************
@@ -1585,6 +1781,52 @@ c
 
       return
       end
+
+*     ***********************************************
+*     *                                             *
+*     *             neb_rmsfit_periodic             *
+*     *                                             *
+*     ***********************************************
+c     function neb_rmsfit  --  rms deviation for paired atoms
+c
+c     This routine computes the rms fit of two coordinate sets
+c
+      real*8 function neb_rmsfit_periodic(nfit,ifit,wfit,rion1,rion2,
+     >                                    amat)
+      implicit none
+      integer nfit,ifit(2,*)
+      real*8 wfit(*)
+      real*8 rion1(3,*),rion2(3,*)
+      real*8 amat(3,3)
+
+      integer i,i1,i2
+      real*8 rmsterm,rmsfit
+      real*8 xr,yr,zr,dist2,rtmp(3)
+      real*8 weight,norm
+c
+c     compute the rms fit over superimposed atom pairs
+c
+      rmsfit = 0.0d0
+      norm = 0.0d0
+      do i = 1, nfit
+         i1 = ifit(1,i)
+         i2 = ifit(2,i)
+         weight = wfit(i)
+         call neb_cdiff(1,rion1(1,i1),rion2(1,i2),amat,rtmp)
+         xr = rtmp(1)
+         yr = rtmp(2)
+         zr = rtmp(3)
+         dist2 = xr**2 + yr**2 + zr**2
+         norm = norm + weight
+         rmsterm = dist2 * weight
+         rmsfit = rmsfit + rmsterm
+      end do
+      neb_rmsfit_periodic = sqrt(rmsfit/norm)
+      return
+      end
+
+
+
 
 
 *     ***********************************************
@@ -2102,13 +2344,13 @@ c
 
        if (opt.eq.0) then
            call neb_coords_set(bead_list,dbl_mb(c1(1)))
-           call runmid_bead_list(bead_list,task_gradient)
+           call runmid_bead_list(bead_list,task_gradient,.true.,.true.)
            call neb_energies_get(bead_list,dbl_mb(e1(1)))
            call neb_gradient_get(bead_list,kbeads,
      >                          dbl_mb(c1(1)),
      >                          dbl_mb(e1(1)),
      >                          dbl_mb(t1(1)),
-     >                          dbl_mb(g1(1)))
+     >                          dbl_mb(g1(1)),.true.,.true.)
            shift = (m-1)*ng
            call dcopy(ng,dbl_mb(c1(1)),1,dbl_mb(cs(1)+shift),1)
            call dcopy(ng,dbl_mb(g1(1)),1,dbl_mb(gs(1)+shift),1)

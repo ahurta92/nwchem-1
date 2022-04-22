@@ -35,10 +35,11 @@ def is_float(str):
 def extract_fields():
     data = {} #yaml.load(initial_input)
     data['format'] = {'version' : '0.1'}
-    data['bibliography'] = [{'url' : 'https://www.nwchem-sw.org'}]
+    data['bibliography'] = [{'url' : 'https://nwchemgit.github.io'}]
     data['generator'] = {'source' : 'nwchem',
-                         'version' : '6.8'}
+                         'version' : '7.0.2'}
     skip_input_geometry = False
+    geometry = None
     coulomb_repulsion = None
     scf_energy = None
     scf_energy_offset = None

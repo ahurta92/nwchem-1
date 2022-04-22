@@ -156,14 +156,14 @@ c     &     0,work(ksrho1))
       end if
 c dbg
       print *,'call to densi2_ab'
-      call flush(6)
+      call util_flush(6)
 c dbg
       call densi2_ab(iden,work(krho1),work(krho2),
      &     vec1,vec2,lulst,lurst,exps2,
      &     0,work(ksrho1),isepab)
 c dbg
       print *,'after densi2_ab'
-      call flush(6)
+      call util_flush(6)
 c dbg
 
       ! symmetrize one-body density matrix
@@ -272,8 +272,11 @@ c      call fock_mat(work(klfoo),2)
       else if (iogtyp.eq.2) then
         stop 'do your work'
       else if (iogtyp.eq.3) then
-        call orbgrd_num2(0,work(kle1),lukappa,
-     &       lu1int_o,lu2int_o,iooexcc,nooexc)
+cedo disabled since routine is missing     
+        write(6,*) 'orbgrd_num2 missing '
+        stop 'orbgrd_num2'
+c        call orbgrd_num2(0,work(kle1),lukappa,
+c     &       lu1int_o,lu2int_o,iooexcc,nooexc)
       else
         write(6,*) 'unknown iogtyp (',iogtyp,')'
         stop 'occ_orbgrad'

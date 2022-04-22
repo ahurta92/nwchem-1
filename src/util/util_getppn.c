@@ -2,22 +2,14 @@
 /* computes the number of processes per node a.k.a ppn 
  it is called by every process only once,
  later calls might not be collective */
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <mpi.h>
 #include "ga.h"
 #include "ga-mpi.h"
 #include "typesf2c.h"
-
-#if defined(__bgq__)
-#include <process.h>
-#include <location.h>
-#include <personality.h>
-#elif defined(__CRAYXT) || defined(__CRAYXE) || defined(__CRAYXC)
-#include <pmi.h>
-#endif
 
 static inline int util_mpi_check(int rc, char * name)
 {
@@ -32,11 +24,7 @@ static short int ppn_initialized=0;
 static int ppn=0;
 void FATR util_getppn_(Integer *ppn_out){
 
-#if defined(__bgq__)
-  *ppn_out = (Integer) Kernel_ProcessCount();
-  return;
-  if(0) {
-#elif MPI_VERSION >= 3
+#if MPI_VERSION >= 3
 
     int err;
     MPI_Comm comm_node;

@@ -56,9 +56,9 @@ Features:
     Builtin PlotItem types:
         
     * 'Data(array1)' -- data from a Python list or NumPy array
-                      (permits additional option 'cols' )
+                      (permits additional option 'cols')
     * 'File("filename")' -- data from an existing data file (permits
-                      additional option 'using' )
+                      additional option 'using')
     * 'Func("exp(4.0 * sin(x))")' -- functions (passed as a string
                       for gnuplot to evaluate)
     * 'GridData(m, x, y)' -- data tabulated on a grid of (x,y) values
@@ -245,7 +245,7 @@ class Func(PlotItem):
 
         gnuplot> plot sin(x)
 
-    The argument to the contructor is a string which is a expression.
+    The argument to the constructor is a string which is a expression.
     Example:
 
         g.plot(Func("sin(x)", with_="line 3"))
@@ -302,10 +302,10 @@ def write_array(f, set,
     A general recursive array writer.  The last four parameters allow a
     great deal of freedom in choosing the output format of the
     array.  The defaults for those parameters give output that is
-    gnuplot-readable.  But using, for example, ( ',', '{', '}', ',\\n'
-    ) would output an array in a format that Mathematica could
-    read.  item_sep should not contain '%' (or if it does, it should be
-    escaped to '%%' ) since item_sep is put into a format string.
+    gnuplot-readable.  But using, for example, ( ',', '{', '}', ',\\n')
+    would output an array in a format that Mathematica could read.
+    item_sep should not contain '%' (or if it does, it should be
+    escaped to '%%') since item_sep is put into a format string.
 
     """
 
@@ -398,7 +398,7 @@ class File(PlotItem):
         '<file>' can be either a string holding the filename of an
         existing file, or it can be an object of a class derived from
         'AnyFile' (such as a 'TempArrayFile').  Keyword arguments
-        recognized (in addition to those recognized by 'PlotItem' ):
+        recognized (in addition to those recognized by 'PlotItem'):
 
             'using=<n>' -- plot that column against line number
             'using=<tuple>' -- plot using a:b:c:d etc.
@@ -434,9 +434,9 @@ class File(PlotItem):
                                 "using " +
                                 string.join(map(repr, self.using), ':'))
         elif type(self.using) == type(1):
-            self.options.insert(0, "using " + `self.using`)
+            self.options.insert(0, "using " + repr(self.using))
         else:
-            raise OptionException('using=' + `self.using`)
+            raise OptionException('using=' + repr(self.using))
 
 
 class Data(File):
@@ -611,7 +611,7 @@ class Gnuplot:
               options; a string, which is plotted as a Func; or
               anything else, which is plotted as a Data.
     'hardcopy' -- replot the plot to a postscript file (if filename
-                  argument is specified) or pipe it to lpr othewise.
+                  argument is specified) or pipe it to lpr otherwise.
                   If the option `color' is set to true, then output
                   color postscript.
     'replot' -- replot the old items, adding any arguments as
@@ -769,7 +769,7 @@ class Gnuplot:
         'splot(item, ...)' -- Clear the current plot and create a new
                 3-d plot containing the specified items.  Arguments can
                 be of the following types:
-        'PlotItem' (e.g., 'Data', 'File', 'Func', 'GridData' ) -- This
+        'PlotItem' (e.g., 'Data', 'File', 'Func', 'GridData') -- This
                 is the most flexible way to call plot because the
                 PlotItems can contain suboptions.  Moreover, PlotItems
                 can be saved to variables so that their lifetime is
@@ -996,7 +996,7 @@ if __name__ == '__main__':
     g2.plot(Func("x**2", title="calculated by gnuplot"), d)
 
     # Save what we just plotted as a color postscript file:
-    print "\n******** Generating postscript file 'gnuplot_test1.ps' ********\n"
+    print("\n******** Generating postscript file 'gnuplot_test1.ps' ********\n")
     g2.hardcopy('gnuplot_test_plot.ps', color=1)
 
     # Demonstrate a 3-d plot:
@@ -1028,16 +1028,16 @@ if __name__ == '__main__':
 
     # Enable the following code to test the old-style gnuplot interface
     if 0:
-	# List of (x, y) pairs
-	plot([(0.,1),(1.,5),(2.,3),(3.,4)])
+        # List of (x, y) pairs
+        plot([(0.,1),(1.,5),(2.,3),(3.,4)])
 
-	# List of y values, file output
-        print "\n            Generating postscript file 'gnuplot_test2.ps'\n"
-	plot([1, 5, 3, 4], file='gnuplot_test2.ps')
+        # List of y values, file output
+        print("\n            Generating postscript file 'gnuplot_test2.ps'\n")
+        plot([1, 5, 3, 4], file='gnuplot_test2.ps')
 
-	# Two plots; each given by a 2d array
-	x = arange(10, typecode=Float)
-	y1 = x**2
-	y2 = (10-x)**2
-	plot(transpose(array([x, y1])), transpose(array([x, y2])))
+        # Two plots; each given by a 2d array
+        x = arange(10, typecode=Float)
+        y1 = x**2
+        y2 = (10-x)**2
+        plot(transpose(array([x, y1])), transpose(array([x, y2])))
 

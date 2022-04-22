@@ -23,13 +23,13 @@ C>
 C> [1] A. Klamt, V. Jonas, T. B&uuml;rger, J.C.W. Lohrenz,
 C>     "Refinement and parametrization of COSMO-RS",
 C>     <i>J. Phys. Chem. A</i> (1998) <b>102</b>, pp 5074-5085, DOI:
-C>     <a href="http://dx.doi.org/10.1021/jp980017s">
+C>     <a href="https://doi.org/10.1021/jp980017s">
 C>     10.1021/jp980017s</a>.
 C>
 C> [2] A. Bondi,
 C>     "van der Waals volumes and radii",
 C>     <i>J. Phys. Chem.</i> (1964) <b>68</b>, pp 441-451, DOI:
-C>     <a href="http://dx.doi.org/10.1021/j100785a001">
+C>     <a href="https://doi.org/10.1021/j100785a001">
 C>     10.1021/j100785a001</a>.
 C>
 C> [3] M. Mantina, R. Valero, C.J. Cramer, D.G. Truhlar,
@@ -38,7 +38,7 @@ C>     and physics, 91st Edition, 2010-2011; W.M. Haynes, Ed.;
 C>     CRC Press, Boca Raton, FL, 2010; pp. 9-49 -- 9-50,
 C>     ISBN-13: 978-1439820773.
 C>
-      subroutine cosmo_def_radii(rtdb,geom,nat,radius)
+      subroutine cosmo_def_radii(rtdb,geom,nat,radius,oprint)
       implicit none
 #include "errquit.fh"
 #include "mafdecls.fh"
@@ -52,6 +52,7 @@ c
       integer nat  !< [Input] The number of atoms
 c
       double precision radius(nat) !< [Output] The atom radii
+      logical oprint
 c
       logical ostatus
       integer mxelm
@@ -313,7 +314,7 @@ c
      &                     aname,
      &                     ctag(i))) then
               radius(iat) = crad(i)
-              if(ga_nodeid().eq.0) 
+              if(ga_nodeid().eq.0 .and. oprint) 
      &            write(*,9977) ctag(i),crad(i)
               cycle atomloop
              
@@ -363,7 +364,7 @@ c bq with zero charge. extract element
      &                     symb,
      &                     ctag(i))) then
               radius(iat) = crad(i)
-              if(ga_nodeid().eq.0) 
+              if(ga_nodeid().eq.0 .and. oprint) 
      &            write(*,9978) ctag(i),symb, crad(i)
               cycle atomloop
              

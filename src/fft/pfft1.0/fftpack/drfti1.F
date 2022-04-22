@@ -1,3 +1,6 @@
+#if defined(XLF14) || defined(XLFLINUX)
+@PROCESS OPT(0) STRICT(ALL)
+#endif
       subroutine drfti1 (n,wa,ifac)
 *
 * $Id$
@@ -51,10 +54,10 @@ c
             fi = 0.d0
             do 108 ii=3,ido,2
                i = i+2
-               fi = fi+1.d0
+               fi = fi+1.0d0
                arg = fi*argld
                wa(i-1) = dcos(arg)
-               wa(i) = dsin(arg)
+               wa(i)   = dsin(arg)
   108       continue
             is = is+ido
   109    continue

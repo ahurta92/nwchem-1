@@ -109,6 +109,18 @@ ifeq ($(HAVE_SET_GA_PROPERTY),Y)
       LIB_DEFINES += -DHAVE_SET_GA_PROPERTY
 endif
 
+ifdef USE_OPENACC_TRPDRV
+  OBJ_OPTIMIZE += ccsd_trpdrv_openacc.o
+  USES_BLAS    += ccsd_trpdrv_openacc.F
+  FOPTIONS += -DUSE_OPENACC_TRPDRV
+  ifeq ($(_FC),pgf90)
+      FOPTIONS += -Mextend -acc -cuda -cudalib=cublas
+  endif
+  ifeq ($(_FC),gfortran)
+      FOPTIONS += -ffree-form -fopenacc -lcublas
+  endif
+endif
+
 
 ifeq ($(ARMCI_NETWORK),MPI-PR)
    LIB_DEFINES += -DACC_STRIPS

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #echo "starting sleep_loop.sh for command: " ${@} >& /tmp/out
 for last_arg in $@; do :; done
 # echo "last arg of ${#} is $last_arg" >& /tmp/out
@@ -20,7 +20,7 @@ else
 	ps_exit="${?}"
         if [[ "$ps_exit" -eq 0 ]]; then
             echo ' ==== ' `date` ' ==== '
-            tail -1 $outfile
+            tail -3 $outfile
 	else
             break          # exit loop.
 	fi

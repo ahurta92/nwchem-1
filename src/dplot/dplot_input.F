@@ -34,9 +34,9 @@
       Character*12  What
       Character*3   Charges
 !      character*30 tag
-      Character*80  File_Vec,File_Vec2,File_Out
-      Character*80  File_Mat1,File_Mat2
-      Character*80  File_civecs
+      Character*256  File_Vec,File_Vec2,File_Out
+      Character*256  File_Mat1,File_Mat2
+      Character*256  File_civecs
       character*32  theory
       logical lgaussian,dodos,ltransden,ldiffden
       double precision tol_rho
@@ -176,9 +176,11 @@ c     guess dft as theory  (is this really needed???)
 *
 *---- Read the information about the source of the one particle reduced density matrices
   250 Continue
-      if (.not.inp_a(File_Mat1))
-     1   call errquit('dplot_input: densmat <file1> [<file2>]',0,
-     1        input_err)
+      if (.not.inp_a(File_Mat1)) then
+         call util_file_name('densmat', .false.,.false.,file_mat1)
+      endif
+c     1   call errquit('dplot_input: densmat <file1> [<file2>]',0,
+c     1        input_err)
       if (inp_a(test)) then
          lth = inp_strlen(test)
          File_Mat2(1:lth) = test(1:lth)

@@ -22,9 +22,9 @@ C     == Parameters ==
       character(len=*), parameter :: pname = "rt_tddft_header: "
       character(len=*), parameter :: fmtint = "(5x,a,i0)"
       character(len=*), parameter :: fmtint2vals = "(5x,a,i0,a,i0,a)"
-      character(len=*), parameter :: fmtdbl = "(5x,a,es10.4)"
+      character(len=*), parameter :: fmtdbl = "(5x,a,es11.4)"
       character(len=*), parameter :: fmtdbl2vals =
-     $     "(5x,a,es10.4,a,es10.4,a)"
+     $     "(5x,a,es11.4,a,es11.4,a)"
       character(len=*), parameter :: fmtdbl3vals =
      $     "(5x,a,es11.4,a,es11.4,a,es11.4,a)"  !11 instead of 10 for neg sign
       character(len=*), parameter :: fmtcha = "(5x,a)"
@@ -210,7 +210,8 @@ C     Note popts string has hardcoded length (shouldnt be a problem).
          endif
 
          if (.not. opt_enabled) then
-            call errquit (pname//"no print options enabled")
+            call errquit (pname//"no print options enabled",
+     $           0          ,INPUT_ERR)
          else
             write (luout, fmtcha) trim (popts)
          endif

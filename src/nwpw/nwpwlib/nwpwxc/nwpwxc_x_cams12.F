@@ -19,12 +19,9 @@ C>
 C> [1] M. Swart,
 C> "A new family of hybrid density functionals",
 C> Chem. Phys. Lett. (In Press, 2013), DOI:
-C> <a href="http://dx.doi.org/10.1016/j.cplett.2013.06.045">
+C> <a href="https://doi.org/10.1016/j.cplett.2013.06.045">
 C> 10.1016/j.cplett.2013.06.045</a>.
 C>
-#if defined(FUJITSU_VPP)
-!ocl scalar
-#endif
 #ifndef SECOND_DERIV
       Subroutine nwpwxc_x_cams12(param, tol_rho, ipol, nq, wght, rho,
      &                         rgamma, func, Amat, Cmat)

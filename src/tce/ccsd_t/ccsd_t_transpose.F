@@ -1,3 +1,17 @@
+c     Modifications (c) 2021 Advanced Micro Devices, Inc. All Rights Reserved.
+
+#ifdef USE_OMP_TEAMS_DISTRIBUTE
+#define TEAMS_DISTRIBUTE teams distribute
+#else
+#define TEAMS_DISTRIBUTE
+#endif
+
+#ifdef USE_OMP_SCHEDULE_STATIC_1
+#define OMP_SCHEDULE schedule(static,1)
+#else
+#define OMP_SCHEDULE
+#endif
+
 #ifdef OFFLOAD_CODE
       subroutine offl_ccsd_t_transpt2(
 #else
@@ -6,13 +20,6 @@
      C     t2sub,scratch,
      c     h1d,p5d,p4d,h7d)
       implicit none
-#ifdef OFFLOAD_CODE
-#ifdef OPENMP_OFFLOAD
-!$omp declare target (offl_ccsd_t_transpt2)
-#else
-cdir$ ATTRIBUTES OFFLOAD : mic :: offl_ccsd_t_transpt2
-#endif
-#endif
       integer h1d,p5d,p4d,h7d
       double precision t2sub(h7d,p4d,p5d,h1d)
       double precision scratch(h1d,p5d,p4d,h7d)
@@ -24,7 +31,16 @@ c
 !DIR$ ASSUME_ALIGNED scratch: 64
 c
 #define CHUNK 16
+#ifdef OFFLOAD_CODE
+#ifdef VERY_VERBOSE
+      write (*,'(A)') '_'
+#endif
+!$omp target map(to:t2sub) map(from:scratch)
+!$omp TEAMS_DISTRIBUTE parallel do private(h7,p4,pp5,hh1,p5,h1)
+!$omp&collapse(2) OMP_SCHEDULE
+#else
 !$omp parallel do private(h7,p4,pp5,hh1,p5,h1) collapse(2)
+#endif
       do h7=1,h7d
          do p4=1,p4d
             do pp5=1,p5d,CHUNK
@@ -40,8 +56,13 @@ cc!deC$ SIMD
             enddo
          enddo
       enddo
+#ifdef OFFLOAD_CODE
+!$omp end target
+#endif
       return
       end
+
+
 #ifdef OFFLOAD_CODE
       subroutine offl_ccsd_t_transpt2_7124(
 #else
@@ -50,13 +71,6 @@ cc!deC$ SIMD
      t     t2sub,scratch,
      c    p4d,h1d,h2d,p7d)
       implicit none
-#ifdef OFFLOAD_CODE
-#ifdef OPENMP_OFFLOAD
-!$omp declare target (offl_ccsd_t_transpt2_7124)
-#else
-cdir$ ATTRIBUTES OFFLOAD : mic :: offl_ccsd_t_transpt2_7124
-#endif
-#endif
       integer p4d,h1d,h2d,p7d
       double precision t2sub(p7d,p4d,h1d,h2d)
       double precision scratch(p7d,h2d,h1d,p4d)
@@ -68,7 +82,16 @@ c
 !DIR$ ASSUME_ALIGNED scratch: 64
 c
 #define CHUNK 16
+#ifdef OFFLOAD_CODE
+#ifdef VERY_VERBOSE
+      write (*,'(A)') 'z'
+#endif
+!$omp target map(to:t2sub) map(from:scratch)
+!$omp TEAMS_DISTRIBUTE parallel do private(p4,h1,hh2,pp7,h2,p7)
+!$omp&collapse(2) OMP_SCHEDULE
+#else
 !$omp parallel do private(p4,h1,hh2,pp7,h2,p7) collapse(2)
+#endif
       do p4=1,p4d
          do h1=1,h1d
             do hh2=1,h2d,CHUNK
@@ -84,8 +107,13 @@ cc!deC$ SIMD
             enddo
          enddo
       enddo
+#ifdef OFFLOAD_CODE
+!$omp end target
+#endif
       return
       end
+
+
 #ifdef OFFLOAD_CODE
       subroutine offl_ccsd_t_transpt2_7326(
 #else
@@ -94,13 +122,6 @@ cc!deC$ SIMD
      t     v2sub,scratch,
      c    h3d,h2d,p6d,h7d)
       implicit none
-#ifdef OFFLOAD_CODE
-#ifdef OPENMP_OFFLOAD
-!$omp declare target (offl_ccsd_t_transpt2_7326)
-#else
-cdir$ ATTRIBUTES OFFLOAD : mic :: offl_ccsd_t_transpt2_7326
-#endif
-#endif
       integer h3d,h2d,p6d,h7d
       double precision v2sub(h3d,h2d,p6d,h7d)
       double precision scratch(h7d,h3d,h2d,p6d)
@@ -111,8 +132,17 @@ c
 !DIR$ ASSUME_ALIGNED v2sub: 64
 !DIR$ ASSUME_ALIGNED scratch: 64
 c
-#define CHUNK 16
+#ifdef OFFLOAD_CODE
+#ifdef VERY_VERBOSE
+      write (*,'(A)') 'Z'
+#endif
+!$omp target map(to:v2sub) map(from:scratch)
+!$omp TEAMS_DISTRIBUTE parallel do private(p6,h2,hh3,hh7,h3,h7)
+!$omp&collapse(2) OMP_SCHEDULE
+#else
 !$omp parallel do private(p6,h2,hh3,hh7,h3,h7) collapse(2)
+#endif
+#define CHUNK 16
       do p6=1,p6d
          do h2=1,h2d
             do hh3=1,h3d,CHUNK
@@ -128,6 +158,9 @@ cc!deC$ SIMD
             enddo
          enddo
       enddo
+#ifdef OFFLOAD_CODE
+!$omp end target
+#endif
       return
       end
 #ifndef OFFLOAD_CODE
@@ -139,3 +172,4 @@ c
 #include "ccsd_t_transpose.F"
 #endif
 #endif
+

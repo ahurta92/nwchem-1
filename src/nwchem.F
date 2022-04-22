@@ -21,9 +21,6 @@
       integer global
       logical status
       logical overify, ohardfail
-#ifdef CRAY_T3D
-      integer oldact, fsigctl
-#endif
 #ifdef PSCALE
       integer io_code
 #else
@@ -33,7 +30,7 @@ c
 c  $Id$
 c
 c  ======================================================================================================
-C> \mainpage Northwest Computational Chemistry Package (NWChem) 6.8
+C> \mainpage Northwest Computational Chemistry Package (NWChem) 7.0.1
 C>
 C> NWChem is an open-source computational chemistry package distributed under the terms of
 C> the Educational Community License (ECL) 2.0
@@ -54,17 +51,17 @@ C> either express or implied. See the License for the specific language governin
 C> permissions and limitations under the License.
 C>
 C> Further information, including user documentation and forums, may be found at
-C> <a href="http://www.nwchem-sw.org/">http://www.nwchem-sw.org/</a>. Alternatively,
+C> <a href="https://nwchemgit.github.io">https:/nwchemgit.github.io</a>. Alternatively,
 C> the paper
 C>
 C> * M. Valiev, E.J. Bylaska, N. Govind, K. Kowalski, T.P. Straatsma, H.J.J. Van Dam,
 C>   D. Wang, J. Nieplocha, E. Apra, T.L. Windus, W.A. de Jong (2010)<br>
 C>   "NWChem: A comprehensive and scalable open-source solution for large scale molecular simulations"<br>
-C>   <I>Computer Physics Communications</I>, <b>181</b>, 1477–1489, DOI: <a href="http://dx.doi.org/10.1016/j.cpc.2010.04.018">10.1016/j.cpc.2010.04.018</a>
+C>   <I>Computer Physics Communications</I>, <b>181</b>, 1477–1489, DOI: <a href="https://doi.org/10.1016/j.cpc.2010.04.018">10.1016/j.cpc.2010.04.018</a>
 C>
 C> provides details on the codes capabilities.
 C>
-C> Copyright (c) 1994-2018 Pacific Northwest National Laboratory, Battelle Memorial Institute
+C> Copyright (c) 1994-2020 Pacific Northwest National Laboratory, Battelle Memorial Institute
 C>
 C> Environmental Molecular Sciences Laboratory (EMSL)<br>
 C> Pacific Northwest National Laboratory<br>
@@ -76,8 +73,10 @@ c
       double precision total_wall, total_cpu
 #ifdef USE_OFFLOAD
       integer ppnout
-      logical offload_master
-      external offload_master
+      logical offload_enabled
+      external offload_enabled
+      integer offload_device
+      external offload_device
 #endif
 
       logical ostartup, ocontinue, orestart
@@ -87,10 +86,13 @@ c
       integer omp_get_max_threads
       external omp_get_max_threads
 #endif
+      logical do_printaff
+      integer linux_printaff
 c
 c     Create parallel processes and initialize IPC layer
 c
       call pbeginf()
+
 c
 c     MXINIT is needed by PeIGS and PFFT to initialize
 c     the communication fabric they use.
@@ -119,7 +121,7 @@ c
 10001    continue
 c
       else
-#if !(defined(KSR) || defined(IBM) || defined(FUJITSU_SOLARIS) ||defined(FUJITSU_VPP) ||defined(FUJITSU_VPP64))
+#if !(defined(KSR) || defined(IBM) || defined(FUJITSU_SOLARIS) )
          close(LuIn)
 #endif
       endif
@@ -137,6 +139,8 @@ c
 c     Initialize local memory allocator & global array tools
 C
       call ga_initialize_ltd(ma_sizeof(mt_dbl,global,mt_byte))
+      ! this must happen after GA and before MA!
+      call util_setup_gpu_affinity()
       if ( ga_uses_ma() ) then
         if (.not.ma_init(mt_dbl, stack, heap+global))
      &      call errquit('nwchem.F: ma_init failed (ga_uses_ma=T)',911,
@@ -162,6 +166,7 @@ C
 !     testing that does not enable OpenMP.
 !
  99   format(2x,'NWChem w/ OpenMP: maximum threads = ',i4)
+      do_printaff=.false.
 #if defined(USE_OPENMP)
       !$omp parallel
       !$omp master
@@ -169,6 +174,9 @@ C
       !$omp end master
       !$omp end parallel
 #endif
+c
+c     set no. threads for threaded BLAS to 1
+      call util_blas_set_num_threads(1)
 !
       call rtdb_init()
 c
@@ -210,11 +218,6 @@ c
 *****      call ieeetrap()
 #if defined(LINUXALPHA)
       call dec_fpe  ! To avoid underflow problems on Alpha in Texas
-#endif
-#ifdef CRAY_T3D
-*     This as a temporary fix for SIGFPE in Texas that does not seem
-*     to affect the final results
-      oldact = fsigctl('IGNORE','SIGFPE',0)
 #endif
 #ifdef LINUX
 c      uncommenting this line turns on sigfpe trapping under linux
@@ -287,10 +290,10 @@ c
       call util_getppn(ppnout)
       if(ppnout.eq.0) call errquit('util_getppn failed ',0,UERR)
       if(ga_nodeid().eq.0)write(luout,*)  ga_nodeid(),' ppn ',ppnout
-      if(offload_master()) then
+      if(offload_enabled()) then
       if(ga_nodeid().lt.ppnout)
-     w        write(luout,*)  ga_nodeid(),' offload_master '
-      call util_mic_set_affinity()
+     w        write(luout,'(I8,A,I2)')  ga_nodeid(),
+     w              ' offload enabled, GPU: ', offload_device()
       endif
       call ga_sync()
 #endif
@@ -315,6 +318,16 @@ c
 #ifdef CATAMOUNT
          call util_allocga()
 #endif
+      if (.not.rtdb_get(rtdb,'do_printaff',mt_log,1,do_printaff))
+     &     do_printaff = .false.
+      if(do_printaff) then
+         if(ga_nodeid().eq.0)
+     W        write(luout,*) '%%%%%% CPU Affinity %%%%%%%'
+         call util_flush(luout)
+         call ga_sync()
+         if(linux_printaff().ne.0) call errquit(
+     A   ' call to linux_printaff failed ',0,CAPMIS_ERR)
+      endif
          call task(rtdb)
          goto 10                !    end while
       endif
@@ -351,7 +364,7 @@ c
       if (ga_nodeid() .eq. 0) then
          if (util_print('ga summary', print_default))
      $        call ga_summarize(0)
-         if (util_print('ga stats', print_default)) then
+         if (util_print('ga stats', print_high)) then
             call ga_print_stats()
             write(LuOut,*)
          endif
@@ -448,7 +461,7 @@ c
       write(LuOut,*)
       write(LuOut,*)
       call util_print_centered(LuOut,
-     $     'Northwest Computational Chemistry Package (NWChem) 6.8',
+     $     'Northwest Computational Chemistry Package (NWChem) 7.0.1',
      $     40, .true.)
       write(LuOut,*)
       write(LuOut,*)
@@ -461,7 +474,7 @@ c
       call util_print_centered(LuOut,'Richland, WA 99352',
      $     40, .false.)
       write(LuOut,*)
-      call util_print_centered(LuOut,'Copyright (c) 1994-2018',
+      call util_print_centered(LuOut,'Copyright (c) 1994-2020',
      $     40, .false.)
       call util_print_centered(LuOut,
      $     'Pacific Northwest National Laboratory',
@@ -544,7 +557,7 @@ C
 C  Print version information to ecce.out file
 C
       compiled(inp_strlen(compiled)+1:inp_strlen(compiled)+25) = 
-     $         ' Version 6.8'
+     $         ' Version 7.0.1'
       call ecce_print_version(compiled(1:inp_strlen(compiled)))
 C
       If ( Inp_StrLen(BatchID) .gt. 0) then

@@ -2073,7 +2073,7 @@ C?      WRITE(6,*) ' MPORENP_E = ', MPORENP_E
         LLDET = XISPSM(LSM,ISPC)
         NDET_MAX = MAX(NDET_MAX, LLDET)
       END DO
-      IF(IPRNT.GT.10.and.ga_nodeid().eq.0)
+      IF(IPRNT.GT.100.and.ga_nodeid().eq.0)
      &   WRITE(6,*) ' NDET_MAX, NDET = ', NDET_MAX, NDET
 *
       NCCM_STRING = XISPSM(ISM,ISPC)
@@ -2286,7 +2286,7 @@ C?      WRITE(6,*) ' MAXA1 1', MAXA1
      &  'MXCJ,MXCIJA,MXCIJB,MXCIJAB = ',
      &   MXCJ,MXCIJA,MXCIJB,MXCIJAB
 *
-      IF(IPRINT.GE.10.and.ga_nodeid().eq.0) THEN !VOG_KNOX
+      IF(IPRINT.GE.100.and.ga_nodeid().eq.0) THEN !VOG_KNOX
        write(*,*) 'LBLOCK',     LBLOCK
        write(*,*) ' MXSOOB',    MXSOOB
        write(*,*) ' MXSOOB_AS', MXSOOB_AS
@@ -4434,7 +4434,7 @@ C?    WRITE(6,*) ' TEST: NOCTPA, NOCTPB = ',  NOCTPA, NOCTPB
       NTTS = MXNTTS
 C?    WRITE(6,*) ' ALLO: NTTS = ', NTTS
 *
-      if (ga_nodeid().eq.0) call MA_summarize_allocated_blocks()
+c     if (ga_nodeid().eq.0) call MA_summarize_allocated_blocks()
       CALL MEMMAN(KCLBT ,NTTS  ,'ADDL  ',1,'CLBT  ')
       CALL MEMMAN(KCLBLK,NTTS  ,'ADDL  ',1,'CLBLK ')
       CALL MEMMAN(KCLEBT,NTTS  ,'ADDL  ',1,'CLEBT ')
@@ -4965,7 +4965,7 @@ C?          WRITE(6,*) ' IROOT NDEG ', IROOT,NDEG
             END IF
 
 *. Initial guess in compressed form in SCR1
-            SCALE = 1.0D0/SQRT(DFLOAT(NDEG))
+            SCALE = 1.0D0/SQRT(DBLE(NDEG))
             DO 250 II = 1,NDEG
 *. Anti symmetric combination
               IF(INIDEG.EQ.-1) THEN
@@ -13439,7 +13439,7 @@ COLD  DIMENSION C(*),HC(*)
 *
 *. VOG RAPING LUCIA (initial guess)
 *
-!           SCALE = 1.0D0/SQRT(DFLOAT(NCVAR))
+!           SCALE = 1.0D0/SQRT(DBLE(NCVAR))
 !            if (ga_nodeid().eq.0)
 !     &        write(*,*) 'I start the Rape', SCALE, NCVAR
 !            call ga_distribution(CB,ga_nodeid(),ilo,ihi,idum,idum)
@@ -15494,7 +15494,7 @@ CNW   DIMENSION SV(*),CV(*)
       LOGICAL ANYLOCAL
 *
       CALL LUCIAQENTER('RASSG')
-      NTEST = 20 !0000 
+      NTEST = 0000 
       NTEST = MAX(NTEST,IPRCIX)
       IF(NTEST.GE.20.and.ga_nodeid().eq.0) THEN
         WRITE(6,*) ' ================='
@@ -15591,9 +15591,9 @@ CNW       CALL COPVEC(SB(IOFF),SV(IOFF_S),LEN)
       IF(ICISTR.NE.1) CALL ITODS(-1,1,-1,LUHC)
       cpu_vogr  = util_cpusec() - cpu_vogr
       wall_vogr = util_wallsec()- wall_vogr
-      write(*,00004) ga_nodeid(), cpu_vogr , wall_vogr !VOG timings
-00004     format('RASSG TOT',i6,' Task  times  cpu:',f11.1,
-     &           's     wall:',f11.1,'s')
+c      write(*,00004) ga_nodeid(), cpu_vogr , wall_vogr !VOG timings
+c00004     format('RASSG TOT',i6,' Task  times  cpu:',f11.1,
+c     &           's     wall:',f11.1,'s')
 c      cpu_vog  = util_cpusec()
 c      wall_vog = util_wallsec()
       call ga_sync()
@@ -15609,7 +15609,7 @@ c     &           's     wall:',f11.1,'s')
 *       write(*,'(a,i4,2i8)') 'PROC', ga_nodeid(), CONVOG(ga_nodeid(),1),
 *     &                                            CONVOG(ga_nodeid(),2)
 *      end if
-      if (ga_nodeid().eq.0) WRITE(6,*) 'Exit ga_sync of RASSG3'
+c     if (ga_nodeid().eq.0) WRITE(6,*) 'Exit ga_sync of RASSG3'
       IF(NTEST.GE.200) THEN
         IF(ICISTR.NE.1) THEN
           if (ga_nodeid().eq.0) WRITE(6,*) ' Final S-vector on disc'
@@ -15728,7 +15728,7 @@ CNW       CALL WRTMAT(SV,1,LEN_S,1,LEN_S)
      &            'EQFRAG','SUPSYM','HFD_OC','HFS_OC','GAS_SP',
      &            'NOSPFI','FRG=LU','FRZORB','SBSPPR','IN_NRO',
      &            'IN_SRO','RT_SEL','FRZFST','VBGNSP','VBOBOR',
-     &            'VBSCOR','AKBKME'/
+     &            'VBSCOR','AKBKME','      '/
 *
 COLD  INTEGER CITYP
 *.Largest allowed number of allowed irreps for orbs

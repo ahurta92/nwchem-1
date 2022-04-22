@@ -19,6 +19,10 @@
       integer vc_indx,vc_hndl
       common / vc_screened_block / vc_indx,vc_hndl
 
+      logical has_single
+      integer svc_indx,svc_hndl
+      common / svc_screened_block / svc_indx,svc_hndl,has_single
+
 *     **** local variables ****
       real*8 EPSILON
 c      parameter (EPSILON=1.0d0)
@@ -29,19 +33,22 @@ c      parameter (EPSILON=1.0d0)
       integer zero,qzero,pzero,taskid
       integer nx,ny,nz,nxh,nyh,nzh
       real*8  pi,twopi,fourpi,gg,x,y,z,temp,dV,pp2,scal1
-      real*8  a(3,3)
+      real*8  a(3,3),unita(3,3),unitg(3,3)
       integer gk(2),glr(2),gk2(2)
 
 *     **** external functions ****
       integer  G_indx
-      real*8   util_erf,lattice_omega,lattice_unita
+      real*8   util_erf,lattice_omega,lattice_unita,lattice_unitg
       real*8   kiril_coulomb_transform, kiril_coulomb_transform0
       real*8  control_attenuation
       external G_indx
-      external util_erf,lattice_omega,lattice_unita
+      external util_erf,lattice_omega,lattice_unita,lattice_unitg
       external kiril_coulomb_transform, kiril_coulomb_transform0
       external control_attenuation
+      logical  control_single_precision_on
+      external control_single_precision_on
 
+      has_single = control_single_precision_on()
       if (flag.eq.2) then
          EPSILON = control_attenuation()
       else
@@ -61,7 +68,10 @@ c      parameter (EPSILON=1.0d0)
 
 *     **** allocate vc memory ****
       value = BA_alloc_get(mt_dbl,npack0,'vc',vc_hndl,vc_indx)
-      if (.not. value) call errquit('out of heap memory',0, MA_ERR)
+      if (has_single)
+     >   value=value.and.
+     >         BA_alloc_get(mt_real,npack0,'svc',svc_hndl,svc_indx)
+      if (.not.value) call errquit('out of heap memory',0,MA_ERR)
 
       value = BA_push_get(mt_dcpl,nfft3d,'gk',gk(2),gk(1))
       value = value.and.
@@ -301,7 +311,7 @@ c            z = a(3,1)*k1 + a(3,2)*k3 + a(3,3)*k2
 *     **************************************************************
 *     ***** flag==4 use erfc definitions of kernel            ******
 *     **************************************************************
-      else
+      else if (flag.eq.4) then
 *     ***********************************
 *     *** Set up the Green's function ***
 *     ***********************************
@@ -329,7 +339,20 @@ c            z = a(3,1)*k1 + a(3,2)*k3 + a(3,3)*k2
 
          dbl_mb(gk2(1)+i-1) = temp
       end do
-      
+
+*     **************************************************************
+*     ***** flag==5 Filtered exchange definitions of kernel   ******
+*     **************************************************************
+      else 
+         !write(*,*) "Filtered Exchange not implemenented!"
+         do j=1,3
+         do i=1,3
+            unita(i,j) = lattice_unita(i,j)
+            unitg(i,j) = lattice_unitg(i,j)
+         end do
+         end do
+         call coulomb_filter(unita,unitg,nfft3d,dbl_mb(G(1)),
+     >                       dbl_mb(gk2(1)))
       end if
 
 
@@ -337,6 +360,12 @@ c            z = a(3,1)*k1 + a(3,2)*k3 + a(3,3)*k2
 *     *** Pack the kernel ****
       call Pack_t_pack(0,dbl_mb(gk2(1)))
       call Pack_t_Copy(0,dbl_mb(gk2(1)),dbl_mb(vc_indx))
+      if (has_single) then
+         call coulom_screened_tosingle(npack0,
+     >                                 dbl_mb(vc_indx),
+     >                                 real_mb(svc_indx))
+      end if
+
 
       value = BA_pop_stack(glr(2))
       value = value.and.BA_pop_stack(gk2(2))
@@ -351,11 +380,23 @@ c            z = a(3,1)*k1 + a(3,2)*k3 + a(3,3)*k2
 *     ***** DEBUG printing *****
 c      call coulomb_screened_init_print(rcut,pp)
 
-
-
       return
       end
 
+
+      subroutine coulom_screened_tosingle(n,a8,a4)
+      implicit none
+      integer n
+      real*8 a8(*)
+      real*4 a4(*)
+      integer i
+!$OMP DO
+      do i=1,n
+         a4(i) = real(a8(i))
+      end do
+!$OMP END DO
+      return
+      end
 
 
 
@@ -366,9 +407,16 @@ c      call coulomb_screened_init_print(rcut,pp)
 *     **** common block used for coulomb.f ****
       integer vc_indx,vc_hndl
       common / vc_screened_block / vc_indx,vc_hndl
+
+      logical has_single
+      integer svc_indx,svc_hndl
+      common / svc_screened_block / svc_indx,svc_hndl,has_single
+
       logical value
 
       value = BA_free_heap(vc_hndl)
+      if (has_single) value=value.and.BA_free_heap(svc_hndl)
+
       return
       end
 
@@ -393,6 +441,29 @@ c      call coulomb_screened_init_print(rcut,pp)
 
       return 
       end
+
+
+      subroutine coulomb_screened_s_v(dng,vc_out)
+      implicit none
+      complex dng(*)
+      complex vc_out(*)
+
+#include "bafdecls.fh"
+
+
+*     **** common block used for coulomb.f ****
+      logical has_single
+      integer svc_indx,svc_hndl
+      common / svc_screened_block / svc_indx,svc_hndl,has_single
+
+
+      call nwpw_timing_start(7)
+      call Packs_tc_Mul(0,real_mb(svc_indx),dng,vc_out)
+      call nwpw_timing_end(7)
+
+      return
+      end
+
 
 
       real*8 function coulomb_screened_e(dng)
@@ -436,6 +507,50 @@ c      call coulomb_screened_init_print(rcut,pp)
       end
 
 
+
+      real function coulomb_screened_s_e(dng)
+      implicit none
+      complex dng(*)
+
+#include "bafdecls.fh"
+#include "errquit.fh"
+
+*     **** common block used for coulomb.f ****
+      logical has_single
+      integer svc_indx,svc_hndl
+      common / svc_screened_block / svc_indx,svc_hndl,has_single
+
+*     **** local variables ****
+      integer npack0
+      real ec
+
+      integer tmp1(2)
+      logical value
+
+*     **** external functions ****
+      real*8  lattice_omega
+      external lattice_omega
+
+      call nwpw_timing_start(7)
+
+      call Pack_npack(0,npack0)
+      value = BA_push_get(mt_real,npack0,'tmp1',tmp1(2),tmp1(1))
+      if (.not. value) call errquit('out of stack memory',0, MA_ERR)
+
+      call Packs_ct_Sqr(0,dng,real_mb(tmp1(1)))
+      call Packs_tt_dot(0,real_mb(tmp1(1)),real_mb(svc_indx),ec)
+      ec = 0.5*ec*real(lattice_omega())
+
+      value = BA_pop_stack(tmp1(2))
+
+      call nwpw_timing_end(7)
+      coulomb_screened_s_e = ec
+      return
+      end
+
+
+
+
       real*8 function icoulomb_screened_e(dng)
       implicit none
       complex*16 dng(*)
@@ -471,6 +586,45 @@ c      call coulomb_screened_init_print(rcut,pp)
       call nwpw_timing_end(7)
 
       icoulomb_screened_e = ec
+      return
+      end
+
+
+      real function icoulomb_screened_s_e(dng)
+      implicit none
+      complex dng(*)
+
+#include "bafdecls.fh"
+#include "errquit.fh"
+
+*     **** common block used for coulomb.f ****
+      logical has_single
+      integer svc_indx,svc_hndl
+      common / svc_screened_block / svc_indx,svc_hndl,has_single
+
+*     **** local variables ****
+      integer tmp1(2)
+      integer npack0
+      real ec
+
+*     **** external functions ****
+      real*8   lattice_omega
+      external lattice_omega
+
+      call nwpw_timing_start(7)
+      call Pack_npack(0,npack0)
+      if (.not.BA_push_get(mt_real,npack0,'tmp1',tmp1(2),tmp1(1)))
+     > call errquit('out of stack',0, MA_ERR)
+
+      call Packs_ct_Sqr(0,dng,real_mb(tmp1(1)))
+      call Packs_tt_idot(0,real_mb(tmp1(1)),real_mb(svc_indx),ec)
+      ec = 0.50*ec*real(lattice_omega())
+
+      if (.not.BA_pop_stack(tmp1(2)))
+     >  call errquit('popping stack memory',0,MA_ERR)
+      call nwpw_timing_end(7)
+
+      icoulomb_screened_s_e = ec
       return
       end
 
@@ -831,11 +985,11 @@ c     >     (1.0d0-(1.0d0-dexp(-(dabs(r)/rcut)**pp2))**pp)/dabs(r) * dV
       value = value.and.
      >        BA_push_get(mt_dbl,n2ft3d,'dgr',dgr(2),dgr(1))
       if (.not. value) call errquit('out of stack memory',0, MA_ERR)
-      call dcopy(2*nfft3d,0.0d0,dcpl_mb(gk(1)),1)
-      call dcopy(2*nfft3d,0.0d0,dcpl_mb(dgk(1)),1)
-      call dcopy(nfft3d,0.0d0,dbl_mb(gk2(1)),1)
-      call dcopy(n2ft3d,0.0d0,dbl_mb(gr(1)),1)
-      call dcopy(n2ft3d,0.0d0,dbl_mb(dgr(1)),1)
+      call dcopy(2*nfft3d,0.0d0,0,dcpl_mb(gk(1)),1)
+      call dcopy(2*nfft3d,0.0d0,0,dcpl_mb(dgk(1)),1)
+      call dcopy(nfft3d,0.0d0,0,dbl_mb(gk2(1)),1)
+      call dcopy(n2ft3d,0.0d0,0,dbl_mb(gr(1)),1)
+      call dcopy(n2ft3d,0.0d0,0,dbl_mb(dgr(1)),1)
 
 
       call D3dB_nz(1,nz)

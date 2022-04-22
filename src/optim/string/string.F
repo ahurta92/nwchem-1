@@ -253,7 +253,7 @@ c        **** impose ****
       else
          middle = -1
 
-         if (.not.rtdb_get(rtdb,'bead_list:size',
+         if (.not.rtdb_get(rtdb,'bead:size',
      >                     mt_int,1,nbeads_exist))
      >     call errquit('getting string:nbeads_exist failed',4,RTDB_ERR)
 
@@ -357,8 +357,8 @@ c        **** impose ****
 
 
 !     *** Set the coordinates of beads to new geometry objects ***
-      if (.not.rtdb_put(rtdb,'bead_list:size',mt_int,1,nbeads))
-     >   call errquit('setting bead_list:size failed',4,RTDB_ERR)
+      if (.not.rtdb_put(rtdb,'bead:size',mt_int,1,nbeads))
+     >   call errquit('setting bead:size failed',4,RTDB_ERR)
 
       do i=1,nbeads
          size = k_coords + (i-1)*3*natoms
@@ -466,6 +466,9 @@ C> @}
 
       character*7 bead_index_name
       external    bead_index_name
+
+      double precision ddot
+      external ddot
 
 ! Setup the problem
 ! "Secret" options with defaults that generally do not need changed
@@ -788,7 +791,7 @@ C> @}
                 read(19,*,ERR=30,END=30) ch_tmp
               end do
  30           continue
-#if defined(FUJITSU_SOLARIS) || defined(PSCALE) || defined(SOLARIS) || defined(__crayx1) || defined(GCC46)
+#if defined(FUJITSU) || defined(PSCALE) || defined(SOLARIS) || defined(__crayx1) || defined(GCC46)
               backspace 19
 #endif
             write(19,*) " "
@@ -1501,6 +1504,8 @@ C> @}
       return
       end
 
+
+
       subroutine zts_guess(natoms,nbeads,middle,coords,guess)
       implicit none
 ! Input
@@ -1643,6 +1648,100 @@ C> @}
 
         return
         end
+
+      subroutine zts_guessall_periodic(natoms,nbeads,coords,geom,amat)
+      implicit none
+!     Input
+      integer natoms, nbeads, geom
+!     Input/Output
+      real*8 coords(3,natoms,nbeads)
+      real*8 amat(3,3)
+!     Local variabls
+      integer i1,i2,i3
+      integer i, ix, iix, k, j
+      integer MAX_N
+      PARAMETER (MAX_N=750)
+      logical done(MAX_N)
+      logical badgeom
+      real*8 dgg
+      real*8 dx,dy,dz,bmat(3,3),vol
+      real*8 f1,f2,f3
+
+
+      !*** generate bmat ***
+      bmat(1,1) = amat(2,2)*amat(3,3) - amat(3,2)*amat(2,3)
+      bmat(2,1) = amat(3,2)*amat(1,3) - amat(1,2)*amat(3,3)
+      bmat(3,1) = amat(1,2)*amat(2,3) - amat(2,2)*amat(1,3)
+
+      bmat(1,2) = amat(2,3)*amat(3,1) - amat(3,3)*amat(2,1)
+      bmat(2,2) = amat(3,3)*amat(1,1) - amat(1,3)*amat(3,1)
+      bmat(3,2) = amat(1,3)*amat(2,1) - amat(2,3)*amat(2,1)
+
+      bmat(1,3) = amat(2,1)*amat(3,2) - amat(3,1)*amat(2,2) 
+      bmat(2,3) = amat(3,1)*amat(1,2) - amat(1,1)*amat(3,2) 
+      bmat(3,3) = amat(1,1)*amat(2,2) - amat(2,1)*amat(1,2) 
+      vol=amat(1,1)*bmat(1,1)+amat(2,1)*bmat(2,1)+amat(3,1)*bmat(3,1)
+      call dscal(9,1.0d0/vol,bmat,1)
+
+
+      if (nbeads .gt. MAX_N)
+     &     call errquit('zts_meps: MAX_N exceeded', 0, 0)
+      done(1) = .true.
+      do i = 2, nbeads - 1
+        done(i) = .false.
+      enddo
+      done(nbeads) = .true.
+ 625  continue ! Loop start
+        ix = -1
+        iix= -1
+        do i = 1, nbeads ! Find un-done region
+          if (ix .eq. -1 .and. .not. done(i)) then
+            ix = i-1
+          endif
+          if (ix .ne. -1 .and. done(i)) then
+            iix = i
+            goto 626
+          endif
+        enddo
+        goto 627 ! Nothing found, we are done
+ 626    continue
+        i = (iix+ix)/2
+        dgg = dble(i-ix)/dble(iix-ix)
+       
+        do j = 1, natoms
+          dx = coords(1,j,iix) - coords(1,j,ix )
+          dy = coords(2,j,iix) - coords(2,j,ix )
+          dz = coords(3,j,iix) - coords(3,j,ix )
+          f1 = dx*bmat(1,1) + dy*bmat(2,1) + dz*bmat(3,1)
+          f2 = dx*bmat(1,2) + dy*bmat(2,2) + dz*bmat(3,2)
+          f3 = dx*bmat(1,3) + dy*bmat(2,3) + dz*bmat(3,3)
+          f1 = f1 - DNINT(f1)
+          f2 = f2 - DNINT(f2)
+          f3 = f3 - DNINT(f3)
+          dx = coords(1,j,ix ) 
+     >       + dgg*(amat(1,1)*f1+amat(1,2)*f2+amat(1,3)*f3)
+          dy = coords(2,j,ix ) 
+     >       + dgg*(amat(2,1)*f1+amat(2,2)*f2+amat(2,3)*f3)
+          dz = coords(3,j,ix ) 
+     >       + dgg*(amat(3,1)*f1+amat(3,2)*f2+amat(3,3)*f3)
+
+          coords(1,j,i) = dx
+          coords(2,j,i) = dy
+          coords(3,j,i) = dz
+
+        enddo
+        !call zts_Robinson(natoms,geom,coords(1,1,i),badgeom)
+        done(i) = .true.
+        goto 625
+      ! End of loop
+ 627  continue
+
+        return
+        end
+
+
+
+
 
 
 

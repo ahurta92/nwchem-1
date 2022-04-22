@@ -167,7 +167,7 @@ c     show how much memory g_st2 (a_st2) needs
          nsz_st2 = lnoo * nbfdim*ma_sizeof(MT_DBL,1,MT_BYTE)
          mem_ava=ma_inquire_avail(MT_BYTE)
          if(iam.eq.0) then
-          if (util_print('ccsd extra', print_medium)) then
+          if (util_print('ccsd extra', print_high)) then
             write(*,'(a,i8,a)') " g_st2 size:",
      &           max(nsz_st2/1024/1024,1), " MB",
      &           " mem. avail ",max(mem_ava/1024/1024,1)," MB"
@@ -588,11 +588,11 @@ c
      &                         ni,nj,nk,nl,nocc,lnoo,
      &                         keqi,jeql,use_ccsd_omp)
       implicit none
+      integer, intent(in)             :: ni,nj,nk,nl,nocc,lnoo
       double precision, intent(in)    :: eri1(nl,nk,nj,ni)
       double precision, intent(in)    :: eri2(nj,nk,nl,ni)
       double precision, intent(in)    :: t2(lnoo,nk,ni)
       double precision, intent(inout) :: ht2(lnoo,nl,nj)
-      integer, intent(in)             :: ni,nj,nk,nl,nocc,lnoo
       logical, intent(in)             :: keqi,jeql,use_ccsd_omp
       double precision                :: gp, gm
       integer                         :: ipp,imm

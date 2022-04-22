@@ -15,7 +15,7 @@
 	ga_cont_blk.o           mull_pop.o \
         matrix_exp.o              scf_pstat.o \
         schwarz_max.o             movecs_proj.o \
-        movecs_rotate.o \
+        movecs_rotate.o movecs_molden.o \
         ao_fock_2e.o              movecs_lock.o \
 	fock_2e.o                 fock_2e_et.o \
 	fock_2e_a.o               print_aoints.o \
@@ -48,7 +48,8 @@
         rohf_hessv3.o \
 	fock_2e_cam.o ga_get2eri.o scf_frozemb.o print_integrals.o \
 	rohf_hessv2_ext.o rohf_hessv3_ext.o uhf_hessv2_ext.o uhf_precond_ext.o \
-	scf_dump_evp_input.o
+	scf_dump_evp_input.o \
+	cosmo_fock.o
 
 
  OBJ_OPTIMIZE = \

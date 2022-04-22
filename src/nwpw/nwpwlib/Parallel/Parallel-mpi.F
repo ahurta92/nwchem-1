@@ -91,6 +91,8 @@ c      call MPI_COMM_SIZE(MPI_COMM_WORLD,np,mpierr)
       stupid_integer = MPI_INTEGER
       stupid_double  = MPI_DOUBLE_PRECISION
       stupid_complex = MPI_DOUBLE_COMPLEX
+      stupid_real    = MPI_REAL
+      stupid_scomplex = MPI_COMPLEX
       stupid_comm_i   = comm_world
       stupid_comm_j   = -99
       stupid_comm_k   = -99
@@ -1186,7 +1188,11 @@ c     implicit none
       subroutine stupid_icopy8to4(n,array8,array4)
       implicit none
       integer n
+#ifdef EXT_INT
       integer*8 array8(*)
+#else
+      integer*4 array8(*)
+#endif
       integer*4 array4(*)
       integer i
       do i=1,n
@@ -1199,7 +1205,11 @@ c     implicit none
       implicit none
       integer n
       integer*4 array4(*)
+#ifdef EXT_INT
       integer*8 array8(*)
+#else
+      integer*4 array8(*)
+#endif
       integer i
       do i=1,n
           array8(i) = array4(i)

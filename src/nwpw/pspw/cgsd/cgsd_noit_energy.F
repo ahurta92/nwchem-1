@@ -18,7 +18,7 @@ c     $Id$
       integer MASTER,taskid
       parameter (MASTER=0)
 
-      logical stalled,value,oprint,psitmp
+      logical stalled,value,oprint,psitmp,field_exist
       integer minimizer
       integer i,j,ms,neall,NN
       integer it_in,it_out,icount,bfgscount
@@ -27,7 +27,7 @@ c     $Id$
       real*8  cx,cy,cz
       real*8  gx,gy,gz
       real*8  en(2),en1(2),en2(2)
-      real*8  E(50),scal,sumall
+      real*8  E(60),scal,sumall,Egas
       integer rtdb,tmp1(2),nx,ny,nz,n2ft3d
 
 
@@ -60,10 +60,14 @@ c     $Id$
       external psp_pawexist,ion_disp_on
       real*8   psi_smearfermi,psi_smearcorrection,lattice_omega
       external psi_smearfermi,psi_smearcorrection,lattice_omega
-      logical  control_hess_model
-      external control_hess_model
-      real*8   ion_hess_energy
-      external ion_hess_energy
+      logical  control_hess_model,nwpw_cosmo_on,pspw_V_APC_on
+      external control_hess_model,nwpw_cosmo_on,pspw_V_APC_on
+      real*8   ion_hess_energy,nwpw_cosmo_screen,control_gas_energy
+      external ion_hess_energy,nwpw_cosmo_screen,control_gas_energy
+      logical  pspw_Efield_found
+      external pspw_Efield_found
+      integer  pspw_Efield_type
+      external pspw_Efield_type
 
       if (control_hess_model()) then
          cgsd_noit_energy = ion_hess_energy()
@@ -74,6 +78,7 @@ c     $Id$
       call Parallel_taskid(taskid)
       oprint = ((taskid.eq.MASTER).and.control_print(print_medium))
 
+      field_exist = pspw_charge_found().or.pspw_Efield_found()
 
 *     **** generate phaze factors and local psp and core density ****
       call dcopy(50,0.0d0,0,E,1)
@@ -160,12 +165,18 @@ c     $Id$
      >                        (E(1)-E(11))/ion_nion()
          end if
 
-         if (pspw_charge_found()) then
+         if (field_exist) then
             write(luout,1431)
             write(luout,1432)
-            write(luout,1433) (E(1)-E(19)-E(20)-E(21)),
-     >         (E(1)-E(19)-E(20)-E(21))/ion_nion()
+            if (pspw_Efield_type().eq.0) then
+               write(luout,1433) (E(1)-E(49)-E(51)),
+     >         (E(1)-E(49)-E(51))/ion_nion()
+            else
+               write(luout,1433) (E(1)-E(49)-E(50)-E(51)),
+     >         (E(1)-E(49)-E(50)-E(51))/ion_nion()
+            end if
          end if
+
 
          !*** write-out total paw energy - includes core energies ***
          if (psp_pawexist())
@@ -177,8 +188,8 @@ c     $Id$
          write(luout,1450) E(3),E(3)/neall
          write(luout,1460) E(4),E(4)/neall
          if (pspw_SIC()) then
-           write(luout,1455) E(22),E(22)/neall
-           write(luout,1456) E(23),E(23)/neall
+           write(luout,1455) E(16),E(16)/neall
+           write(luout,1456) E(17),E(17)/neall
          end if
          if (pspw_HFX()) then
            write(luout,1457) E(26),E(26)/neall
@@ -189,6 +200,9 @@ c     $Id$
          if (meta_found()) then
            write(luout,1459) E(31),E(31)/ion_nion()
          end if
+         if (pspw_V_APC_on()) then
+           write(luout,1505) E(22),E(22)/ion_nion()
+         end if
          write(luout,1470) E(5),E(5)/ion_nion()
          if (control_fractional()) write(luout,1471) E(28),E(28)/neall
 
@@ -198,8 +212,8 @@ c     $Id$
          write(luout,1496) E(9),E(9)/neall
          write(luout,1497) E(10),E(10)/neall
          if (pspw_SIC())  then
-           write(luout,1499) E(24),E(24)/neall
-           write(luout,1501) E(25),E(25)/neall
+           write(luout,1499) E(18),E(18)/neall
+           write(luout,1501) E(19),E(19)/neall
          end if
          if (pspw_HFX())  then
            write(luout,1502) E(27),E(27)/neall
@@ -209,6 +223,9 @@ c     $Id$
          end if
          if (meta_found()) then
            write(luout,1504) E(32),E(32)/neall
+         end if
+         if (pspw_V_APC_on()) then
+           write(luout,1506) E(23),E(23)/neall
          end if
 
 
@@ -232,7 +249,7 @@ c        **** paw energies ****
          write(luout,1690) E(45),E(45)/ion_nion()
          end if
 
-        if (pspw_qmmm_found()) then
+         if (pspw_qmmm_found()) then
             write(luout,1700)
             write(luout,1701)
             write(luout,1702) E(11)
@@ -246,15 +263,24 @@ c
 c            write(luout,1704) E(16)
 c            write(luout,1705) E(17)
 c            write(luout,1706) E(18)
-        end if
-        if (pspw_charge_found()) then
+
+         end if
+
+         if (field_exist) then
             write(luout,1800)
             write(luout,1801)
-            write(luout,1805) E(19)+E(20)+E(21)
-            write(luout,1802) E(19)
-            write(luout,1803) E(20)
-            write(luout,1804) E(21)
-        end if
+           if (pspw_Efield_type().eq.0) then
+              write(luout,1805) E(49)+E(51)
+              write(luout,1806) E(49)
+              write(luout,1807) E(50)
+              call dipole_Efield_print(luout)
+            else
+               write(luout,1805) E(49)+E(50)+E(51)
+               write(luout,1802) E(49)
+               write(luout,1803) E(50)
+               write(luout,1804) E(51)
+            end if
+         end if
 
         if (ion_disp_on()) then
             write(luout,1720) E(33)
@@ -359,8 +385,27 @@ c            end do
 
 
            end if
-
       end if
+
+*     **** write out COSMO energies ****
+      if (nwpw_cosmo_on()) then
+         Egas = control_gas_energy()
+         if (oprint) then
+            write(luout,1730)
+            write(luout,1731) nwpw_cosmo_screen()
+            write(luout,1732) E(46)
+            write(luout,1733) E(47)
+            write(luout,1734) E(48)
+            write(luout,1735) E(46)+E(47)+E(48),
+     >                        (E(46)+E(47)+E(48))*27.2116d0*23.06d0
+            if (dabs(Egas).gt.1.0d-6)
+     >         write(luout,1736)  E(1)-Egas,
+     >                           (E(1)-Egas)*27.2116d0*23.06d0
+            call nwpw_cosmo_print(luout,Egas,E(1))
+         end if
+      end if
+
+
       if (control_symmetry().gt.0) call psi_ab_kill_irrep_names()
 
 
@@ -480,6 +525,8 @@ c1410 FORMAT(10X,'=============  summary of results  =================')
      >        ' (',E15.5,'/electron)')
  1504 FORMAT( ' K.S. Metadynamics energy   :',E19.10,
      >        ' (',E15.5,'/ion)')
+ 1505 FORMAT( ' APC energy          :',E19.10,' (',E15.5,'/ion)')
+ 1506 FORMAT( ' K.S. V_APC energy   :',E19.10,' (',E15.5,'/ion)')
  1507 FORMAT(/' Fermi energy =',2(E18.7,' (',F8.3,'eV)'))
  1510 FORMAT(2(E18.7,' (',F8.3,'eV)'))
  1511 FORMAT(2(E18.7,' (',F8.3,'eV)  occ=',F5.3))
@@ -514,12 +561,25 @@ c1410 FORMAT(10X,'=============  summary of results  =================')
 
  1720 FORMAT(/' Dispersion energy   :',E19.10)
 
- 1800 FORMAT(/' Charge Field Energies')
- 1801 FORMAT( ' ---------------------')
- 1802 FORMAT( ' - Charge Field/Electron    :',E19.10)
- 1803 FORMAT( ' - Charge Field/Ion         :',E19.10)
- 1804 FORMAT( ' - Charge Field/Charge Field:',E19.10)
- 1805 FORMAT( ' Charge Field Energy        :',E19.10)
+ 1730 FORMAT(/' COSMO energies:')
+ 1731 FORMAT(5x,' screen=(epsilon-1)/(epsilon+1/2):',F11.6)
+ 1732 FORMAT(5x,' screen*Qelc*B*q energy  :',E19.10)
+ 1733 FORMAT(5x,' screen*Qion*B*q energy  :',E19.10)
+ 1734 FORMAT(5x,' screen*0.5*q*A*q energy :',E19.10)
+ 1735 FORMAT(5x,' solvation energy (w/o QM polarization) :',E19.10,
+     >   /45x,' (',F8.3,' kcal/mol)')
+ 1736 FORMAT(5x,' solvation energy (w/  QM polarization) :',E19.10,
+     >   ' (',F8.3,' kcal/mol)')
+
+
+ 1800 FORMAT(/' Charge+Electric Field Energies')
+ 1801 FORMAT( ' ------------------------------')
+ 1802 FORMAT( ' - Charge+Electric Field/Electron    :',E19.10)
+ 1803 FORMAT( ' - Charge+Electric Field/Ion         :',E19.10)
+ 1804 FORMAT( ' - Charge+Electric Field/Charge Field:',E19.10)
+ 1805 FORMAT( ' Charge+Electric Field Energy        :',E19.10)
+ 1806 FORMAT( ' - Electric Field/Resta_Dipole       :',E19.10)
+ 1807 FORMAT( ' - K.S. Electric Field/Resta_Dipole  :',E19.10)
 
 
       end

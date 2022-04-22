@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # 
 declare -a LIST_MPIFWRAP
-LIST_MPIFWRAP=( 'mpif90' 'mpiifort' 'mpifc' 'mpixlf_r' 'mpixlf' 'mpif77' )
+LIST_MPIFWRAP=( 'mpif90' 'mpiifort' 'mpifc' 'mpixlf_r' 'mpixlf' 'mpif77' 'mpifrt' 'mpifrtpx')
 export LIST_MPIFWRAP
 declare -a LIST_MPICWRAP
-LIST_MPICWRAP=( 'mpicc' 'mpixlc_r' 'mpixlc' 'mpigcc' 'mpiicc' )
+LIST_MPICWRAP=( 'mpicc' 'mpixlc_r' 'mpixlc' 'mpigcc' 'mpiicc' 'mpifcc' 'mpifccpx')
 export LIST_MPICWRAP
 function usage()
 {
@@ -71,8 +71,8 @@ function get_mpi_include ()
    fi
    outlist=""
    for word in ${inlist} ; do
-      len=`echo "${word}" | grep -o "\-I" | wc -c`
-      if [ ${len} -ge 2 ] ; then
+      len=`echo "${word}" | grep -o "^\-I" | wc -c`
+      if [ ${len} -ge 3 ] ; then
         outlist="${outlist} ${word}"
       fi
    done
@@ -112,8 +112,8 @@ function get_mpi_link ()
    fi
    outlist=""
    for word in ${inlist} ; do
-      len=`echo "${word}" | grep -o "\-L" | wc -c`
-      if [ ${len} -ge 2 ] ; then
+      len=`echo "${word}" | grep -o "^\-L" | wc -c`
+      if [ ${len} -ge 3 ] ; then
         outlist="${outlist} ${word}"
       fi
    done
@@ -153,8 +153,8 @@ function get_mpi_lib ()
    fi
    outlist=""
    for word in ${inlist} ; do
-      len=`echo "${word}" | grep -o "\-l" | wc -c`
-      if [ ${len} -ge 2 ] ; then
+      len=`echo "${word}" | grep -o "^\-l" | wc -c`
+      if [ ${len} -ge 3 ] ; then
         outlist="${outlist} ${word}"
       fi
    done

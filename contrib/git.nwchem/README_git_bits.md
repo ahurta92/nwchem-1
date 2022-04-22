@@ -26,7 +26,7 @@ Occasionally, we might want to get updates from master into branch *test* using:
 When ready to merge into master:
 
     git checkout master (we are now on master branch)  
-    git pull (make sure master is upto date)  
+    git pull (make sure master is up to date)  
     git merge test  
     If there are any conflicts, fix those files manually, commit the fixed files and then: (git merge abort if something seems wrong to abort the merge process)  
     git push  
@@ -119,7 +119,7 @@ $ git diff --stat --cached origin/master
 
 git diff branch1 branch2 --name-only (shows diff b/w 2 branches)
 
+How to git clone without git
 
-
-
-
+ curl -LJO https://github.com/nwchemgit/nwchem/tarball/master
+ curl -LJO https://github.com/nwchemgit/nwchem/tarball/hotfix/release-6-8

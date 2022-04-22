@@ -371,9 +371,12 @@ c     integer i2_start(NFFT3+1)
 
       logical value
       integer i
+      logical  control_single_precision_on
+      external control_single_precision_on
 
       call D3dB_timereverse_end(nb)
       call D3dB_fft_end(nb)
+      if (control_single_precision_on()) call D3dBs_fft_end(nb)
 
       value=.true.
 
@@ -772,6 +775,8 @@ c     p = p_map(k)
       integer taskid,np
       integer  Parallel_threadid
       external Parallel_threadid
+      logical  control_single_precision_on
+      external control_single_precision_on
 
 
 
@@ -880,6 +885,7 @@ c     p = p_map(k)
 
       call D3dB_c_timereverse_init(nb)
       call D3dB_fft_init(nb)
+      if (control_single_precision_on()) call D3dBs_fft_init(nb)
       
       return
       end
@@ -1404,6 +1410,11 @@ c      call dfftw_cleanup_threads()
       end
 
 
+
+
+
+
+
 c*     ***********************************
 c*     *                                 *
 c*     *         D3dB_n_fft_init         *
@@ -1889,6 +1900,7 @@ c     end do
       return
       end 
 
+
       subroutine cshift1_fftb1(nx,A)
       implicit none
       integer nx
@@ -1899,6 +1911,7 @@ c     end do
       end do 
       return
       end
+
 
       subroutine zeroend_fftb1(nx,A)
       implicit none
@@ -3027,9 +3040,11 @@ c      end
 
       integer i
 
+!$OMP DO
       do i=1,n2ft3d_map(nb)
          C(i) = C(i) + A(i)**2
       end do
+!$OMP END DO
       return
       end
 
@@ -3597,6 +3612,8 @@ c      call Parallel2d_np_i(np)
 *     *	         D3dB_rr_dot  	 	*	
 *     *					*
 *     ***********************************
+*     shared memory output
+*     - sumall
 
       subroutine D3dB_rr_dot(nb,A,B,sumall)     
       implicit none 
@@ -3711,11 +3728,13 @@ c      call Parallel2d_np_i(np)
      >             matrix(1,k),k)
       end do
 
+!$OMP DO
       do k=1,n
       do j=k+1,n
         matrix(j,k) = matrix(k,j)
       end do
       end do
+!$OMP END DO
 
       if (np.gt.1) call D3dB_Vector_SumAll(n*n,matrix)
       call nwpw_timing_end(2)
@@ -3746,6 +3765,29 @@ c      call Parallel2d_np_i(np)
       do i=1,nfft3d_map(nb)
             C(i) = dconjg(A(i)) * B(i)
          end do
+
+      return
+      end
+
+*     ***********************************
+*     *                                 *
+*     *          D3dB_cc_Mul2           *       
+*     *                                 *
+*     ***********************************
+
+      subroutine D3dB_cc_Mul2(nb,A,B)
+      implicit none
+      integer    nb
+      complex*16 A(*)
+      complex*16 B(*)
+
+#include "D3dB.fh"
+
+      integer i
+
+      do i=1,nfft3d_map(nb)
+         B(i) = A(i) * B(i)
+      end do
 
       return
       end
@@ -3858,25 +3900,17 @@ c      call Parallel2d_np_i(np)
 #include "D3dB.fh"
 
       integer nb
-      real*8 A(n2ft3d_map(nb))
-      real*8 B(n2ft3d_map(nb))
-      real*8 C(n2ft3d_map(nb))
+      real*8 A(*)
+      real*8 B(*)
+      real*8 C(*)
       integer i,n
 
-#ifdef NUSE_OPENMP
-      n = n2ft3d_map(nb)
-
-
-      do i=1,n
-            C(i) = A(i) * B(i)
-      end do
-
-
-#else
+!$OMP DO
       do i=1,n2ft3d_map(nb)
-            C(i) = A(i) * B(i)
+         C(i) = A(i) * B(i)
       end do
-#endif
+!$OMP END DO
+
       return
       end
 
@@ -4051,24 +4085,14 @@ c      call Parallel2d_np_i(np)
       real*8  A(n2ft3d_map(nb))
       real*8  B(n2ft3d_map(nb))
       real*8  C(n2ft3d_map(nb))
-      integer i,n
+      integer i
 
 
-#ifdef NUSE_OPENMP
-      n = n2ft3d_map(nb)
-
-
-      do i=1,n
-         C(i) = A(i) - B(i)
-      end do
-
-
-
-#else
+!$OMP DO
       do i=1,n2ft3d_map(nb)
          C(i) = A(i) - B(i)
       end do
-#endif
+!$OMP END DO
 
       return
       end
@@ -4090,22 +4114,14 @@ c      call Parallel2d_np_i(np)
       real*8  A(n2ft3d_map(nb))
       real*8  B(n2ft3d_map(nb))
 
-      integer i,n
+      integer i
 
-#ifdef NUSE_OPENMP
-      n = n2ft3d_map(nb)
-
-
-      do i=1,n
-         B(i) = B(i) - A(i)
-      end do
-
-
-#else
+!$OMP DO
       do i=1,n2ft3d_map(nb)
          B(i) = B(i) - A(i)
       end do
-#endif
+!$OMP END DO
+
 
       return
       end
@@ -4125,9 +4141,11 @@ c      call Parallel2d_np_i(np)
 
       integer i
 
+!$OMP DO
       do i=1,n2ft3d_map(nb)
          B(i) = B(i)*A(i)
       end do
+!$OMP END DO
 
       return
       end
@@ -4150,9 +4168,11 @@ c      call Parallel2d_np_i(np)
 
       integer i
 
+!$OMP DO
       do i=1,n2ft3d_map(nb)
          C(i) = C(i) + B(i)*A(i)
       end do
+!$OMP END DO
 
       return
       end
@@ -4176,9 +4196,11 @@ c      call Parallel2d_np_i(np)
 
       integer i
 
+!$OMP DO
       do i=1,nfft3d_map(nb)
          B(i) = B(i) + alpha*A(i)
       end do
+!$OMP END DO
 
       return
       end
@@ -4202,9 +4224,11 @@ c      call Parallel2d_np_i(np)
 
       integer i
 
+!$OMP DO
       do i=1,nfft3d_map(nb)
          B(i) = B(i) + alpha*A(i)
       end do
+!$OMP END DO
 
       return
       end
@@ -4226,9 +4250,11 @@ c      call Parallel2d_np_i(np)
 
       integer i
 
+!$OMP DO
       do i=1,n2ft3d_map(nb)
          B(i) = B(i) + alpha* A(i)
       end do
+!$OMP END DO
 
       return
       end
@@ -4257,6 +4283,7 @@ c      call Parallel2d_np_i(np)
       !do j=1,ny(nb)
       !do i=1,nx(nb)
 CDIR$ NOVECTOR
+!$OMP DO
       do index = 1,n2ft3d_map(nb)
          !index = i + (j-1)*(nx(nb)+2) + (q-1)*(nx(nb)+2)*ny(nb)
          if (dabs(B(index)) .le. eta) then
@@ -4265,6 +4292,7 @@ CDIR$ NOVECTOR
            C(index) = A(index) / B(index)
          end if
       end do
+!$OMP END DO
       !end do
       !end do
       !end do
@@ -5613,6 +5641,7 @@ c     integer i2_start(NFFT3+1)
       return
       end
 
+
       subroutine D3dB_pfft_index2_zero(n,index,a)
       implicit none
       integer n
@@ -5629,6 +5658,8 @@ c     integer i2_start(NFFT3+1)
 !$OMP END DO
       return
       end
+
+
 
       subroutine D3dB_pfft_index2_copy_conjg(n,index,a,b)
       implicit none

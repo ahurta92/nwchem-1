@@ -22,12 +22,9 @@ C> [1] A.D. Becke,
 C> "Density-functional exchange-energy approximation with correct
 C> asymptotic behavior",
 C> Phys. Rev. A <b>38</b>, 3098-3100 (1998), DOI:
-C> <a href="http://dx.doi.org/10.1103/PhysRevA.38.3098">
+C> <a href="https://doi.org/10.1103/PhysRevA.38.3098">
 C> 10.1103/PhysRevA.38.3098</a>.
 C>
-#if defined(FUJITSU_VPP)
-!ocl scalar
-#endif
 #if !defined(SECOND_DERIV) && !defined(THIRD_DERIV)
 #if defined(NWAD_PRINT)
       Subroutine nwxc_x_b88_p(tol_rho, ipol, nq, wght, rho, rgamma,

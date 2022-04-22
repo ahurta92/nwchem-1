@@ -795,6 +795,7 @@ cQSCFmodel
 c_nmo_vector
       if (.not.movecs_read_header(movecs_out,title,basisname,
      1  scftype,nbf_verify,ipol_verify,nmo,2)) call errquit
+     1     ('tce_input: failed reading moves',0,DISK_ERR)
 cQtilesize 
          qtilesize=1 
          if (.not.rtdb_put(rtdb,'tce:tilesize',mt_int,1,qtilesize))
@@ -1036,7 +1037,7 @@ c         endif
      3    call errquit('tce_init: ucc/uccsdt module overridden',0,
      4    UNKNOWN_ERR)
       else if (model.eq.'ccsdt') then
-        nointorb=.true.
+!        nointorb=.true.
         ctype='Coupled-cluster singles, doubles, & triples'
         if (perturbative.eq.'2_q') then
           ctype='Coupled-cluster through triples w/ perturbation'
@@ -1060,7 +1061,7 @@ c ccsd_act/eomccsd_act
      3    call errquit('tce_init: ucc/uccsdt module overridden',0,
      4    UNKNOWN_ERR)
       else if (model.eq.'ccsdtq') then
-        nointorb=.true.
+!        nointorb=.true.
         ctype='Coupled-cluster singles, doubles, triples, & quadruples'
         if ((module.ne.'tce').and.
      1      (module.ne.'ucc').and.
@@ -1358,7 +1359,7 @@ c
       nfiles = 0
       if (ioalg.eq.5) then
         if (dra_init(max_files,1.0d11,1.0d11,
-     1    dfloat(buffer_size)*dfloat(bytes)).ne.0)
+     1    dble(buffer_size)*dble(bytes)).ne.0)
      2    call errquit('tce_init: dra initialization failed',0,
      3    DISK_ERR)
       endif

@@ -107,9 +107,19 @@ c     m11      => 8800
 c     xm11     => 8810
 c     cm11     => 8820
 c
+c     revm11   => 8850
+c
 c     m11-L    => 8900
 c     xm11-L   => 8910
 c     cm11-L   => 8920
+c      
+c     mn12-L   => 8950
+c     mn12-sx   => 8960
+c     m06-sx   => 8962
+c      
+c     mn15-L   => 8970
+c     mn15     => 8980
+c     
 c
 c     sogga    => 9000
 c     xsogga   => 9010
@@ -126,18 +136,22 @@ c
 c
 c     n12 numfunc=45 > 9245
 c     
-c     cn12-sx numfunc=  > 9248
-c
+c     n12-sx -> 9260
+c      
 c     srexch ==> 9310
 c     hse03 ==> 9320
 c
+c     wb97 ==> 9410
+c     wb97x ==> 9420
+c     wb97x-d3 ==> 9430
 c
 c     becke86b ==> 9510
 c     xperde86 ==> 9520
 c
+c     hcth147@tz2p ==> 1947
 c
-      integer num_dirs, ind, mlen, iline, n
-      parameter (num_dirs=151)
+      integer num_dirs, ind, mlen, iline, n, itemp
+      parameter (num_dirs=165)
 c
       character*15 dirs(num_dirs)
       character*255 test
@@ -148,6 +162,9 @@ c
       logical  lcfac(numfunc),  lxfac(numfunc), ck_local
       logical nlcfac(numfunc), nlxfac(numfunc)
       logical xccomb(numfunc)
+      logical success
+      logical,external :: nwchem_libxc_init
+      logical,external :: is_libxcon
 c
 c     XC functionals coefficients
 c     
@@ -175,20 +192,24 @@ c
      &     'xm06','cm06','m06-2x','xm06-2x','cm06-2x',
      &     'm08-hx','xm08-hx','cm08-hx',
      &     'm08-so','xm08-so','cm08-so',
-     &     'm11','xm11','cm11',
-     &     'm11-l','xm11-l','cm11-l',
+     &     'm11','xm11','cm11','revm11',
+     &     'm11-l','xm11-l','cm11-l','mn12-l','mn12-sx','m06-sx',
+     &     'mn15-l','mn15',
      &     'sogga','xsogga','csogga',
      &     'sogga11','xsogga11','csogga11',
      &     'sogga11-x','xsogga11-x','csogga11-x',
-     %     'n12','xn12','cn12','cn12-sx',
+     %     'n12','xn12','cn12','n12-sx',
      &     'xbnl07',
      &     'becke97-d','xcamb88','xcampbe96','mp2','b2plyp',
      &     'xcamlsd','xwpbe','ssb-d','kt1','kt2','bhlyp','b3p86',
      &     'b3pw91','pbe96','dldf','srhfexch','hse03',
      &     's12g','s12h','cam-s12g','cam-s12h',
      &     'becke86b','xperdew86','xmvs15','cvpbe09','mvs',
-     &     'hle16', 'scan', 'scanl','scan0','lb94', 'regscan',
-     &     'xncap', 'ncap' /
+     &     'hle16', 'scan', 'scanl','scan0','lb94', 'rscan',
+     &     'xncap', 'ncap', 'r2scan', 'r2scanl',
+     &     'xscan', 'cscan',
+     &     'hcth147@tz2p',
+     W     'wb97','wb97x','wb97x-d3'/
 c     becke97-d, ssb-d
       logical disp, dumdirect
       integer ivdw
@@ -197,10 +218,18 @@ c
       logical cam_exch,cam_srhf
       double precision cam_omega,cam_alpha,cam_beta
 c
+      logical use_hcth147
+c
 c     Grab the current input line and dump the functional specification
 c     onto the RTDB. This way external programs can pick the actual
 c     functional definition up as it was entered.
 c
+      success = nwchem_libxc_init()
+c
+c     reset cam parameters
+c
+      call xc_setcamparam(rtdb,.false.,.false.,0d0,0d0,0d0)
+
       if (.not.inp_line(test)) then
          write(*,*)'xc_input: Could not read functional specification'
       endif
@@ -235,6 +264,9 @@ c
  10   if (.not. inp_a(test)) goto 1999
 c     
       if (.not. inp_match(num_dirs, .false., test, dirs, ind)) then
+        call nwchem_libxc_read(rtdb,test,success,xfac,lxfac,
+     $                         nlxfac)
+        if (success) goto 10
 c     
 c        Does not match a keyword ... 
 c     
@@ -252,14 +284,20 @@ c
      &  5900,6000,6100,6200,6300,6400,6500,6600,6700,6800,6900,
      &     7000,7100,7200,7300,7400,7500,7600,7610,7010,
      &     7700,7800,7900,8000,8100,
-     &  8600,8610,8620,8700,8710,8720,8800,8810,8820,8900,8910,8920,
+     &  8600,8610,8620,8700,8710,8720,8800,8810,8820,8850,
+     M  8900,8910,8920,8950,8960,8962,8970,8980,
      &  9000,9010,9020,9100,9110,9120,9200,9210,9220,
-     N  9245,9246,9247,9248,
+     N  9245,9246,9247,9260,
      &  8200,4800,8300,8400,8500,8510,8520,8530,4600,4700,4701,8531,
      &  8532,8533,8534,9300,9310,9320,4610,4620,4630,4640,
      &  9510,9520,4115,2109,4124,3101,
      &  9610,9620,9630,9494,9640,
-     &  9710,9720,1999) ind
+     &     9710,9720,9650,9660,9615,9616,
+     &  1947,
+     &  9410,9420,9430,
+     &     1999 ) ind
+
+
       call errquit('xc_inp: unimplemented directive', ind, INPUT_ERR)
 c     
 c     acm; adiabatic connection method
@@ -539,7 +577,23 @@ c
  1847    continue
 c
 c        assume total wanted
-c     
+c
+         if (.not. rtdb_get(rtdb, 'dft:use_hcth147', mt_log, 1,
+     c        use_hcth147)) use_hcth147=.false.
+         if(.not.use_hcth147) then
+            write(luout,*) ' ********** WARNING *********'
+            write(luout,*) ' Use of the hcth147 is deprecated,'
+            write(luout,*) ' the hcth147@tz2p should be used instead.'
+            write(luout,*) ' Details at '
+        write(luout,*) ' https://github.com/nwchemgit/nwchem/pull/301'
+            write(luout,*) ' ****************************'
+            write(luout,*) ' If you still wish to use hcth147, '
+            write(luout,*) ' add the folllowing input line '
+            write(luout,*) ' before the dft input section'
+            write(luout,*) '    set dft:use_hcth147 t'
+            write(luout,*) ' ****************************'
+            call errquit(' use of hcth147 deprecated ',0, INPUT_ERR)
+         endif
        xccomb(8) = .true.
          lxfac(11) = .true.
          nlxfac(11) = .true.
@@ -548,7 +602,23 @@ c
          nlcfac(17) = .true.
          cfac(17) = 1.0d0
        goto 10
-c     
+c
+c
+c     HCTH147@TZ2P for exchange & correlation
+c
+ 1947    continue
+c
+c        assume total wanted
+c
+       xccomb(75) = .true.
+         lxfac(75) = .true.
+         nlxfac(75) = .true.
+         xfac(75) = 1.0d0
+         lcfac(75) = .true.
+         nlcfac(75) = .true.
+         cfac(75) = 1.0d0
+       goto 10
+c
 c     becke 97 gga-1 by  Cohen and Handy
 c     
  3000  continue
@@ -1510,23 +1580,13 @@ c
 c     cpkzb99 Perdew Kurth Zupan Blaha metaGGA functional for correlation
 c     default local functional (PW91 LDA) is set in cpkzb99.F code
 c             
- 3650 if (inp_a(test)) then
-         if (inp_compare(.false.,'local', test)) then
-            write(LuOut,*)' cpkzb99 is a nonlocal functional;',
-     &                ' "local" descriptor is ignored. '                   
-           call inp_prev_field()
-         elseif (inp_compare(.false.,'nonlocal', test)) then
-           write(LuOut,*)' cpkzb99 cannot be conveniently',
-     &           ' split into local and nonlocal pieces; '
-            write(LuOut,*)' total cpkzb99 is used. '
-            call inp_prev_field()
-         endif
-      endif
+ 3650 continue
 c
 c           assume total wanted (but total here = nonlocal)
 c
       lcfac(25) = .true.
       nlcfac(25) = .true.
+      call xcinp_fact_noloc(test,'cpkzb99',cfac(25))
       if (.not. inp_f(cfac(25))) then
          cfac(25) = 1.0d0
       endif            
@@ -1687,6 +1747,20 @@ c
         xfac(66) = 1.0d0
       goto 10
 c
+c X-only SCAN meta GGA
+c
+ 9615 lxfac(66) = .true.
+      nlxfac(66) = .true.
+      call xcinp_fact_noloc(test,'xscan',xfac(66))
+      goto 10
+c
+c C-only SCAN meta GGA
+c
+ 9616 lcfac(66) = .true.
+      nlcfac(66) = .true.
+      call xcinp_fact_noloc(test,'cscan',cfac(66))
+      goto 10
+c
 c SCAN0 hybrid meta GGA
 c
 9630  xccomb(70) = .true.
@@ -1739,6 +1813,29 @@ c
       nlxfac(72) = .true.
       xfac(72) = 1.0d0
       goto 10
+c
+c r2SCAN metaGGA
+c
+9650  xccomb(73) = .true.
+       lcfac(73) = .true.
+      nlcfac(73) = .true.
+        cfac(73) = 1.0d0
+       lxfac(73) = .true.
+      nlxfac(73) = .true.
+        xfac(73) = 1.0d0
+      goto 10
+c
+c r2SCAN-L deorbitalized metaGGA
+c
+9660  xccomb(74) = .true.
+       lcfac(74) = .true.
+      nlcfac(74) = .true.
+        cfac(74) = 1.0d0
+       lxfac(74) = .true.
+      nlxfac(74) = .true.
+        xfac(74) = 1.0d0
+      goto 10
+
 c
 c lb94 Vxc function
 c fill only x here, no c
@@ -3007,6 +3104,31 @@ c
 c
       goto 10
 c
+c revM11
+c
+ 8850  xccomb(79) = .true.
+         xfac(79)= 1.0d0
+        lxfac(79)=.true.
+       nlxfac(79)=.true.
+        cfac(79) = 1.0d0
+       lcfac(79) = .true.
+      nlcfac(79) = .true.
+        xfac(1) = 1d0
+       lxfac(1) = .true.
+      nlxfac(1) = .true.
+c    
+c     set cam parameters since this is a range-separated functional 
+c
+      cam_omega = 0.40
+      cam_alpha = 0.225
+      cam_beta = 0.775
+      cam_exch = .true.
+      cam_srhf = .false.
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &    cam_beta)
+c
+      goto 10
+c
 c  M11-L
 c
  8900  xccomb(51) = .true.
@@ -3094,6 +3216,103 @@ c
       if (.not. inp_f(cfac(51))) then
          cfac(51) = 1.0d0
       endif
+c
+      goto 10
+c
+c  MN12-L
+c
+ 8950 xccomb(80) = .true.
+         xfac(80)= 1.0d0
+        lxfac(80)=.true.
+       nlxfac(80)=.true.
+        cfac(80) = 1.0d0
+       lcfac(80) = .true.
+      nlcfac(80) = .true.
+c
+      goto 10
+c
+c  MN12-SX
+c
+ 8960 xccomb(81) = .true. 
+c
+c       Ex(HF-SR)
+c
+        xfac(1) = 0.25d0
+       lxfac(1) = .true.
+       nlxfac(1) = .true.
+c       
+        xfac(81)= 1.0d0
+        lxfac(81)=.true.
+       nlxfac(81)=.true.
+        cfac(81) = 1.0d0
+       lcfac(81) = .true.
+       nlcfac(81) = .true.
+c    
+c     set cam parameters since this is a range-separated functional 
+c
+      cam_omega = 0.11d0
+      cam_alpha = 0.d0
+      cam_beta =  1.0
+      cam_exch = .true.
+      cam_srhf = .true. ! for short-range HF
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &     cam_beta)
+c
+      goto 10
+c
+c  M06-SX
+c
+ 8962 xccomb(81) = .true. 
+c
+c       Ex(HF-SR)
+c
+        xfac(1) = 0.335d0
+       lxfac(1) = .true.
+       nlxfac(1) = .true.
+c       
+        xfac(85)= 1.0d0
+        lxfac(85)=.true.
+       nlxfac(85)=.true.
+        cfac(85) = 1.0d0
+       lcfac(85) = .true.
+       nlcfac(85) = .true.
+c    
+c     set cam parameters since this is a range-separated functional 
+c
+      cam_omega = 0.10d0
+      cam_alpha = 0.d0
+      cam_beta =  1.0
+      cam_exch = .true.
+      cam_srhf = .true. ! for short-range HF
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &     cam_beta)
+c
+      goto 10
+c
+c  MN15-L
+c
+ 8970 xccomb(83) = .true.
+         xfac(83)= 1.0d0
+        lxfac(83)=.true.
+       nlxfac(83)=.true.
+        cfac(83) = 1.0d0
+       lcfac(83) = .true.
+      nlcfac(83) = .true.
+c
+      goto 10
+c
+c  MN15
+c
+ 8980 xccomb(84) = .true.
+         xfac(84)= 1.0d0
+        lxfac(84)=.true.
+       nlxfac(84)=.true.
+        xfac(1) = 0.44d0
+       lxfac(1) = .true.
+       nlxfac(1) = .true.
+        cfac(84) = 1.0d0
+       lcfac(84) = .true.
+      nlcfac(84) = .true.
 c
       goto 10
 c
@@ -3412,14 +3631,35 @@ c
       goto 10
 
 c
-c  N12-sx c
+c  N12-SX
 c
- 9248 continue
-         cfac(44)= 1.0d0
-        lcfac(44)=.true.
-       nlcfac(44)=.true.
+ 9260 xccomb(82) = .true. 
+c
+c       Ex(HF-SR)
+c
+        xfac(1) = 0.25d0
+       lxfac(1) = .true.
+       nlxfac(1) = .true.
+c       
+        xfac(82)= 1.0d0
+        lxfac(82)=.true.
+        nlxfac(82)=.true.
+        cfac(82) = 1.0d0
+       lcfac(82) = .true.
+       nlcfac(82) = .true.
+c    
+c     set cam parameters since this is a range-separated functional 
+c
+      cam_omega = 0.11d0
+      cam_alpha = 0.d0
+      cam_beta =  1.0
+      cam_exch = .true.
+      cam_srhf = .true. ! for short-range HF
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &     cam_beta)
 c
       goto 10
+       
 
 c     
 c     becke86b; Perdew-Burke-Ernzerhof exchange functional 
@@ -3960,6 +4200,91 @@ c
 c
       goto 10
 c
+c
+c wb97
+c
+ 9410  xccomb(76) = .true.
+         xfac(76)= 1.0d0
+        lxfac(76)=.true.
+       nlxfac(76)=.true.
+        cfac(76) = 1.d0
+       lcfac(76) = .true.
+       nlcfac(76) = .true.
+c
+c       Ex(HF-LR)=Ex(HF)-Ex(HF-SR)
+c
+        xfac(1) = 1d0
+       lxfac(1) = .true.
+      nlxfac(1) = .true.
+c
+c     set cam parameters since this is a range-separated functional
+c
+      cam_omega = 0.4d0
+      cam_alpha = 0d0
+      cam_beta = 1d0
+      cam_exch = .true.
+      cam_srhf = .false.
+
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &     cam_beta)
+
+c
+      goto 10
+c
+c wb97x
+c
+ 9420 xccomb(77) = .true.
+         xfac(77)= 1.0d0
+        lxfac(77)=.true.
+       nlxfac(77)=.true.
+        cfac(77) = 1.d0
+       lcfac(77) = .true.
+      nlcfac(77) = .true.
+        xfac(1) = 1d0
+       lxfac(1) = .true.
+      nlxfac(1) = .true.
+c
+c     set cam parameters since this is a range-separated functional
+c
+      cam_omega = 0.3d0
+      cam_alpha = 0.157706d0
+      cam_beta =  0.842294d0
+      cam_exch = .true.
+      cam_srhf = .false.
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &    cam_beta)
+c
+      goto 10
+c
+c wb97x-d3
+c
+ 9430 xccomb(78) = .true.
+         xfac(78)= 1.0d0
+        lxfac(78)=.true.
+       nlxfac(78)=.true.
+        cfac(78) = 1.d0
+       lcfac(78) = .true.
+      nlcfac(78) = .true.
+        xfac(1) = 1d0
+       lxfac(1) = .true.
+      nlxfac(1) = .true.
+c
+c     set cam parameters since this is a range-separated functional
+c
+      cam_omega = 0.25d0
+      cam_alpha = 0.195728d0
+      cam_beta =  1d0-cam_alpha
+      cam_exch = .true.
+      cam_srhf = .false.
+      call xc_setcamparam(rtdb,cam_exch,cam_srhf,cam_omega,cam_alpha,
+     &     cam_beta)
+c D3
+      ivdw = 3
+      if (.not.rtdb_put(rtdb,'dft:ivdw', mt_int, 1, ivdw))
+     &    call errquit('xc_inp: rtdb_put failed vdw', 0, RTDB_ERR)
+c
+      goto 10
+c
 c     gill96; Gill '96 functional for exchange
 c     
  2300  if (inp_a(test)) then
@@ -4222,6 +4547,17 @@ c
      &   call errquit('xc_inp: rtdb_put failed', 7, RTDB_ERR)
 
 cc AJL/End
+
+      if (is_libxcon()) then
+        if (.not.(rtdb_put(rtdb, module(1:mlen)//':libxcon',
+     $                     mt_log,1,.true.)))
+     $   call errquit('xc_inp: rtdb_put failed', 8, RTDB_ERR)
+        call nwchem_libxc_rtdbput(rtdb,module(1:mlen))
+        else
+        if (.not.(rtdb_put(rtdb, module(1:mlen)//':libxcon',
+     $                     mt_log,1,.false.)))
+     $   call errquit('xc_inp: rtdb_put failed', 9, RTDB_ERR)
+      endif   
 c
       return
 c     
@@ -4443,4 +4779,32 @@ c
       call util_flush(LuOut)
       call errquit('ts_input: invalid format', 0, INPUT_ERR)
 c     
+      end
+      subroutine xcinp_fact_noloc(test,funcname,fact_out)
+      implicit none
+      character*(*) test        ! [in]
+      character*(*) funcname    ! [in]
+      double precision fact_out ! [out]
+#include "inp.fh"
+#include "stdio.fh"
+ 1    if (.not. inp_f(fact_out)) then
+         if (inp_a(test)) then
+            if (inp_compare(.false.,'local', test)) then
+               write(LuOut,*) funcname(1:inp_strlen(funcname)),
+     &              ' is a nonlocal functional;',
+     &              ' "local" descriptor is ignored. '
+               goto 1
+            elseif (inp_compare(.false.,'nonlocal', test)) then
+               write(LuOut,*) funcname(1:inp_strlen(funcname)),
+     &              ' cannot be conveniently',
+     &              ' split into local and nonlocal pieces; '
+               write(LuOut,*)' total ',funcname(1:inp_strlen(funcname)),
+     &              ' is used. '
+               goto 1
+            endif
+         else
+            fact_out=1d0
+         endif
+      endif
+      return
       end

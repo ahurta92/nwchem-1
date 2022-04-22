@@ -18,7 +18,7 @@
 	int_1e_fde.o \
 	sca_lab_mat.o \
 	dft_utilmap.o \
-	dft_genutils.o
+	dft_genutils.o dft_cholinv.o
 
 
      LIBRARY = libnwdft.a
@@ -28,7 +28,7 @@
 LIB_INCLUDES = -I../include
 
 
-USES_BLAS = ga_chol_seq.F ga_inv_seq.F 
+USES_BLAS = ga_chol_seq.F ga_inv_seq.F int_1e_fde.F
 
 include ../../config/makefile.h
 include ../../config/makelib.h

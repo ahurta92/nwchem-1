@@ -33,14 +33,17 @@ sub copy_case() {   # Take case from "from" and apply it to "to" and return that
 $debug = 0;
 @from = ();
 @to   = ();
-$data_path = $ENV{'NWCHEM_TOP'} ;
-if ($data_path eq "") {
-    print "Error: environment variable NWCHEM_TOP is not set\n";
-    print "sngl2dbl: Fatal error\n" ;
-    exit 1;
-}
+#$data_path = $ENV{'NWCHEM_TOP'} ;
+#if ($data_path eq "") {
+#    print "Error: environment variable NWCHEM_TOP is not set\n";
+#    print "sngl2dbl: Fatal error\n" ;
+##    exit 1;
+#}
+use File::Basename;
+$data_path = dirname(__FILE__);
 if($debug) {print "{$data_path} \n";}
-$data_path = $data_path . "/src/config/data.64_to_32";
+#$data_path = $data_path . "/src/config/data.64_to_32";
+$data_path = $data_path . "/data.64_to_32";
 if($debug) {print "{$data_path} \n";}
 open (DATA,$data_path) || die " unable to open: $data_path \n";
 while (<DATA>)
@@ -85,7 +88,7 @@ foreach $file (@ARGV){
     open(FILETOFIX,$filebak) || die "Could not open file: $filebak\n";
     open(FIXEDFILE,$file) || die "Could not open file: $file\n";
     while (<FILETOFIX>) {
-	if ( /^c/ || /^C/ || /^\*/ || /^\#/ || /^$/){
+	if ( /^c/ || /^C/ || /^\*/ || /^$/){
 	    print FIXEDFILE $_;
 	}
 	else	{

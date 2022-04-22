@@ -1,4 +1,19 @@
 C$Id$
+
+c     Modifications (c) 2021 Advanced Micro Devices, Inc. All Rights Reserved.
+
+#ifdef USE_OMP_TEAMS_DISTRIBUTE
+#define TEAMS_DISTRIBUTE teams distribute
+#else
+#define TEAMS_DISTRIBUTE
+#endif
+
+#ifdef USE_OMP_SCHEDULE_STATIC_1
+#define OMP_SCHEDULE schedule(static,1)
+#else
+#define OMP_SCHEDULE
+#endif
+
 #ifdef OFFLOAD_CODE
       subroutine offl_ccsd_t_dot(
 #else
@@ -16,18 +31,11 @@ C
 C     $Id$
 C
       implicit none
-#ifdef OFFLOAD_CODE
-#ifdef OPENMP_OFFLOAD
-!$omp declare target (offl_ccsd_t_dot)
-#else
-cdir$ ATTRIBUTES OFFLOAD : mic :: offl_ccsd_t_dot
-#endif
-#endif
       integer h1b, h2b, h3b, p4b, p5b, p6b
-      double precision o_h1(*),o_h2(*),o_h3(*)
-      double precision o_p4(*),o_p5(*),o_p6(*)
       integer r_h1,r_h2,r_h3
       integer r_p4,r_p5,r_p6
+      double precision o_h1(r_h1),o_h2(r_h2),o_h3(r_h3)
+      double precision o_p4(r_p4),o_p5(r_p5),o_p6(r_p6)
       double precision a_singles(r_h3,r_h2,r_h1,r_p6,r_p5,r_p4)
       double precision a_doubles(r_h3,r_h2,r_h1,r_p6,r_p5,r_p4)
       logical restricted
@@ -40,6 +48,7 @@ c
 c
 c factor = [ 1/36, 1/18, 1/12, 1/6, 1/4, 1/3, 1/2, 1, 2]
 c
+
       if (restricted) then
         factor = 2.0d0
       else
@@ -55,12 +64,31 @@ c
       else if ((h1b.eq.h2b).or.(h2b.eq.h3b)) then
         factor = factor / 2.0d0
       endif
+#ifdef OFFLOAD_CODE
+#ifdef VERY_VERBOSE
+      write (*,'(A)') "X"
+#endif
+!$omp target map(tofrom:o_p4) map(tofrom:o_p5)
+!$omp& map(tofrom:o_p6) map(tofrom:o_h1)
+!$omp& map(tofrom:o_h2) map(tofrom:o_h3)
+!$omp& map(tofrom:energy1) map(tofrom:energy2)
+c
+!$omp TEAMS_DISTRIBUTE parallel do
+!$omp& collapse(3) OMP_SCHEDULE
+!$omp& default(shared)
+!$omp& private(p4,p5,p6,h1,h2,h3,sing,doub,denom)
+!$omp& private(d_p4,d_p5,d_p6,d_h1,d_h2,d_h3)
+!$omp& reduction(+:energy1) reduction(+:energy2)
+#else
+#ifdef USE_OPENMP
 !$omp  parallel do collapse(3)
 !$omp& schedule(static)
 !$omp& default(shared)
 !$omp& private(p4,p5,p6,h1,h2,h3,sing,doub,denom)
 !$omp& private(d_p4,d_p5,d_p6,d_h1,d_h2,d_h3)
 !$omp& reduction(+:energy1) reduction(+:energy2)
+#endif
+#endif
       do p4 = 1, r_p4
        do p5 = 1, r_p5
         do p6 = 1, r_p6
@@ -72,7 +100,6 @@ c
           d_h1 = o_h1(h1)
           do h2 = 1, r_h2
            d_h2 = o_h2(h2)
-!dir$ simd
            do h3 = 1, r_h3
             d_h3 = o_h3(h3)
             sing = a_singles(h3,h2,h1,p6,p5,p4)
@@ -86,6 +113,14 @@ c
         enddo
        enddo
       enddo
+#ifdef OFFLOAD_CODE
+!$omp end TEAMS_DISTRIBUTE parallel do
+!$omp end target
+#else
+#ifdef USE_OPENMP
+!$omp end parallel do
+#endif
+#endif
       return
       end
 #ifndef OFFLOAD_CODE

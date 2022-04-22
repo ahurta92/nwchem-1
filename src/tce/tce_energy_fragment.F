@@ -343,7 +343,7 @@ c
                       else
                       if(.not.rtdb_cput(rtdb,'sdmp2:task',1,'energy'))
      1                  call errquit('tce_energy_fragment',0, RTDB_ERR)
-                      if (.not.semi_dir_mp2(rtdb,.false.)) call errquit
+                      if (.not.semi_dir_mp2(rtdb)) call errquit
      1                  ('tce_energy_fragment: mp2',0,
      2                  UNKNOWN_ERR)
                       if (.not.rtdb_get(rtdb,'mp2:energy',mt_dbl,1,
@@ -472,14 +472,14 @@ c
                   if (nodezero) write(LuOut,9110) ifrag,
      1              dbl_mb(k_efrags+ifrag-1),int_mb(k_fcount+ifrag-1)
                   energy = energy
-     1                   - dfloat(max(0,int_mb(k_fcount+ifrag-1)-1))
+     1                   - dble(max(0,int_mb(k_fcount+ifrag-1)-1))
      2                   * dbl_mb(k_efrags+ifrag-1)
                 endif
               else
                 if (nodezero) write(LuOut,9010) ifrag,
      1            dbl_mb(k_efrags+ifrag-1),int_mb(k_fcount+ifrag-1)
                 energy = energy
-     1               - dfloat(int_mb(k_fcount+ifrag-1))
+     1               - dble(int_mb(k_fcount+ifrag-1))
      2               * dbl_mb(k_efrags+ifrag-1)
               endif
             enddo

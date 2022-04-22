@@ -66,6 +66,7 @@ c
       logical tda                       ! True if Tamm-Dancoff approximation
       logical singlet                   ! True if singlet excited states
       logical triplet                   ! True if triplet excited states
+      logical lhascd                    ! True if a CD basis was specified
       integer ispintag         ! 1 = restricted singlet, 2 = restricted triplet, 3 = unrestricted 
       integer nroots           ! Number of roots sought
       integer maxvecs          ! Maximum number of trial vectors
@@ -118,7 +119,7 @@ c
       character*(nw_max_path_len) fn_trials
 c
       logical llanczos
-      logical lkdav,lpolar
+      logical lkdav,lpolar,rodft
       integer ipolar,ipolar_start,ipolar_end
 c
       nodezero=(ga_nodeid().eq.0)
@@ -128,6 +129,13 @@ c Ground-state HF/DFT first
 c -------------------------
 c
       use_theory = "dft"
+c
+c     stop for rodft
+c
+      if (.not. rtdb_get(rtdb, 'dft:rodft', mt_log, 1, rodft))
+     R     rodft=.false.
+      if(rodft) call errquit(
+     R     ' tddft not compatible with RODFT ',0,CAPMIS_ERR)
       call tddft_dftinit(rtdb,oskel,oadapt)
       if (.not.dft_energy(rtdb)) then
         tddft_energy=.false.
@@ -187,7 +195,8 @@ c
      4  tda,singlet,triplet,nroots,maxvecs,tol2e,thresh,
      5  maxiter,target,targetsym,symmetry,algorithm,g_movecs,
      6  l_evl,k_evl,l_occ,k_occ,l_irs,k_irs,mult,lecut,ecut,diff_max,
-     7  lowin,owstart,owend,lewin,ewinl,ewinh,vshift)
+     7  lowin,owstart,owend,lewin,ewinl,ewinh,vshift,
+     8  lhascd)
 c
 c ----------------------------------
 c Cosmo initialization, if necessary
@@ -379,7 +388,8 @@ c         tddft_analysis is called at the end of tddft_davidson
      2      g_buffer1,g_buffer2,d_trials,d_prod_p,d_prod_m,
      3      g_movecs,dbl_mb(k_evl),ntrials,nproducts,
      4      tda,oskel,.true.,.false.,tol2e,xfac(1),lhashf,thresh,
-     5      maxiter,target,targetsym,algorithm,mult,l_irs,k_irs)
+     5      maxiter,target,targetsym,algorithm,mult,l_irs,k_irs,
+     6      lhascd)
 c
         endif  ! singlet
 c
@@ -420,7 +430,8 @@ c         tddft_analysis is called at the end of tddft_davidson
      2      g_buffer1,g_buffer2,d_trials,d_prod_p,d_prod_m,
      3      g_movecs,dbl_mb(k_evl),ntrials,nproducts,
      4      tda,oskel,.false.,.true.,tol2e,xfac(1),lhashf,thresh,
-     5      maxiter,target,targetsym,algorithm,mult,l_irs,k_irs)
+     5      maxiter,target,targetsym,algorithm,mult,l_irs,k_irs,
+     6      lhascd)
 c
         endif ! triplet
 c
@@ -456,7 +467,8 @@ c
      2    g_buffer1,g_buffer2,d_trials,d_prod_p,d_prod_m,
      3    g_movecs,dbl_mb(k_evl),ntrials,nproducts,
      4    tda,oskel,.false.,.false.,tol2e,xfac(1),lhashf,thresh,
-     5    maxiter,target,targetsym,algorithm,mult,l_irs,k_irs)
+     5    maxiter,target,targetsym,algorithm,mult,l_irs,k_irs,
+     6    lhascd)
       endif
 c
 c Clean up cosmo stuff, if necessary ==

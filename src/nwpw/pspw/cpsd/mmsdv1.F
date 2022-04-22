@@ -41,7 +41,7 @@
       real*8  dipole(3)
 
 *     ***** energy variables ****
-      real*8  E(30)
+      real*8  E(60)
 
 
 *     **** psi smearing block ****
@@ -347,7 +347,7 @@
          end if
       if (icount.lt.it_out) go to 1
       if (taskid.eq.MASTER) 
-     > write(6,*) '*** arived at the Maximum iiteration.   terminated.'
+     > write(6,*) '*** arrived at the Maximum iteration.   terminated.'
 
 *::::::::::::::::::::  end of iteration loop  :::::::::::::::::::::::::
 

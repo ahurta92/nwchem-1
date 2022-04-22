@@ -596,21 +596,28 @@ c
 c     Entry - tag: name of bead list
 c
 c 
-      subroutine runmid_bead_list(tag,task_gradient_gen)
+      subroutine runmid_bead_list(tag,task_gradient_gen,
+     >                            freeze1,freezen)
       implicit none
       character*(*) tag
       logical     task_gradient_gen
       external    task_gradient_gen
+      logical freeze1,freezen
      
 *     *** local variables ***
-      integer i,nbeads
+      integer i,nbeads,istart,iend
 
 *     *** external functions ***
       integer  size_bead_list
       external size_bead_list
 
       nbeads = size_bead_list(tag)
-      do i=2,(nbeads-1)
+      !do i=2,(nbeads-1)
+      istart = 2
+      iend   = nbeads-1
+      if (.not.freeze1) istart = 1 
+      if (.not.freezen) iend   = nbeads
+      do i=istart,iend
         call run_bead_list(tag,i,task_gradient_gen)
       end do
 
@@ -823,6 +830,150 @@ c     >   geom_name = 'bead'//bead_index_name(i)//':geom'
       end
 
 
+
+c     **********************************************
+c     *                                            *
+c     *              systype_bead_list             *
+c     *                                            *
+c     **********************************************
+
+c  This routine returns if the systype, i.e. the number of dimensions
+c from the "tag" bead list. Uses bead index=1.
+c
+c     Entry - tag: name of bead list
+c     Exit  -
+c
+      integer function systype_bead_list(tag)
+      implicit none
+      character*(*) tag
+
+#include "rtdb.fh"
+#include "mafdecls.fh"
+#include "geom.fh"
+
+*     ***** local variables ****
+      integer i,isystype
+      real*8 amat(3,3)
+      logical value
+      integer geom,nion
+      integer size,taglen,geomlen
+      real*8  energy
+      character*255 rtdb_name,geom_name
+
+      integer bead_rtdb
+      common /bead_list/ bead_rtdb
+
+*     **** external functions ****
+      character*7 bead_index_name
+      integer     inp_strlen,size_bead_list
+      external    bead_index_name
+      external    inp_strlen,size_bead_list
+
+      isystype = 0
+      i = 1
+      size = size_bead_list(tag)
+      if (i.gt.size) then
+         systype_bead_list = isystype
+         return
+      end if
+
+      taglen    = inp_strlen(tag)
+
+      rtdb_name = tag(1:taglen)//bead_index_name(i)//':geom_name'
+c      if (.not.rtdb_cget(bead_rtdb,rtdb_name,1,geom_name))
+c     >   geom_name = 'bead'//bead_index_name(i)//':geom'
+      if (.not.rtdb_cget(bead_rtdb,rtdb_name,1,geom_name))
+     >   geom_name = tag(1:taglen)//bead_index_name(i)//':geom'
+      geomlen   = inp_strlen(geom_name)
+
+      value =           geom_create(geom,'bead_tmp')
+      value = value.and.geom_rtdb_load(bead_rtdb,geom,
+     >                                 geom_name(1:geomlen))
+
+*     **** get systype ***
+      if (.not.geom_systype_get(geom,isystype)) then
+         isystype = 0
+      end if
+
+      value = value.and.geom_destroy(geom)
+      if (.not.value) call errquit('systype_bead_list failed',0,0)
+
+      systype_bead_list = isystype
+      return
+      end
+
+
+
+
+c     ***************************************************
+c     *                                                 *
+c     *              amatrix_get_bead_list              *
+c     *                                                 *
+c     ***************************************************
+
+c  This routine returns the amatrix, amat, of the "i" bead
+c from the "tag" bead list.
+c
+c     Entry - tag: name of bead list
+c             i: bead number
+c     Exit  - amat: amatrix
+c
+      subroutine amatrix_get_bead_list(tag,i,amat)
+      implicit none
+      character*(*) tag
+      integer i
+      real*8 amat(3,3)
+
+#include "rtdb.fh"
+#include "mafdecls.fh"
+#include "geom.fh"
+
+*     ***** local variables ****
+      logical value
+      integer geom,nion
+      integer size,taglen,geomlen
+      real*8  energy
+      character*255 rtdb_name,geom_name
+
+      integer bead_rtdb
+      common /bead_list/ bead_rtdb
+
+*     **** external functions ****
+      character*7 bead_index_name
+      integer     inp_strlen,size_bead_list
+      external    bead_index_name
+      external    inp_strlen,size_bead_list
+
+      size = size_bead_list(tag)
+      if (i.gt.size) return
+
+      taglen    = inp_strlen(tag)
+
+      rtdb_name = tag(1:taglen)//bead_index_name(i)//':geom_name'
+c      if (.not.rtdb_cget(bead_rtdb,rtdb_name,1,geom_name))
+c     >   geom_name = 'bead'//bead_index_name(i)//':geom'
+      if (.not.rtdb_cget(bead_rtdb,rtdb_name,1,geom_name))
+     >   geom_name = tag(1:taglen)//bead_index_name(i)//':geom'
+      geomlen   = inp_strlen(geom_name)
+
+      value =           geom_create(geom,'bead_tmp')
+      value = value.and.geom_rtdb_load(bead_rtdb,geom,
+     >                                 geom_name(1:geomlen))
+
+*     **** get amatrix ***
+      if (.not.geom_amatrix_get(geom,amat)) then
+         call dcopy(9,0.0d0,0,amat,1)
+      end if
+
+      value = value.and.geom_destroy(geom)
+      if (.not.value) call errquit('amatrix_get_bead_list failed',0,0)
+
+      return
+      end
+
+
+
+
 c     ***************************************************
 c     *                                                 *
 c     *               gradient_get_bead_list            *
@@ -997,9 +1148,9 @@ c
 #include "global.fh"
 
 *     ***** local variables ****
-      logical value
-      integer taglen,i,ii,geom,geomlen,nbeads,nion
-      real*8  energy,q,rxyz(3)
+      logical value,isperiodic
+      integer taglen,i,ii,geom,geomlen,nbeads,nion,i1,i2
+      real*8  energy,q,rxyz(3),amat(3,3),rr
       character*255 rtdb_name,geom_name
       character*2   symbol
       character*16  t,name
@@ -1036,10 +1187,25 @@ c     >      geom_name = 'bead'//bead_index_name(i)//':geom'
          value = value.and.geom_rtdb_load(bead_rtdb,
      >                             geom,geom_name(1:geomlen))
          value = value.and.geom_ncent(geom,nion)
+
+         call amatrix_get_bead_list(tag,i,amat)
+         rr = 0.0d0
+         do i2=1,3
+         do i1=1,3
+            rr = rr + dabs(amat(i1,i2))
+         end do
+         end do
+         isperiodic = (rr.gt.3.001d0)
+
  
          if (ga_nodeid().eq.0) then
-         write(luout,*) nion
-         write(luout,*) 'energy=',energy
+            write(luout,*) nion
+            if (isperiodic) then
+               write(luout,'(A,F14.6,A,9F12.6)') 'energy=',energy,
+     >                   ' amatrix=',((amat(i1,i2),i1=1,3),i2=1,3)
+            else
+               write(luout,'(A,F14.6)') 'energy=',energy
+            end if
          end if
          do ii=1,nion       
             value = value.and.geom_cent_get(geom,ii,t,rxyz,q)
@@ -1062,6 +1228,167 @@ c     >      geom_name = 'bead'//bead_index_name(i)//':geom'
      >  call errquit('create_xyz_file_bead_list failed',0,0)
 
       return
+      end
+
+c     ***************************************************
+c     *                                                 *
+c     *            create_cif_file_bead_list            *
+c     *                                                 *
+c     ***************************************************
+
+c  This routine returns the current energy and coordinates  of bead, i, 
+c from the bead_list labeled 'tag'.
+c
+c     Entry - tag: name of bead list
+c
+c 
+      subroutine create_cif_file_bead_list(luout,tag)
+      implicit none
+      integer luout
+      character*(*) tag
+
+#include "rtdb.fh"
+#include "mafdecls.fh"
+#include "geom.fh"
+#include "global.fh"
+
+*     ***** local variables ****
+      logical value,isperiodic
+      integer taglen,i,ii,geom,geomlen,nbeads,nion,i1,i2
+      real*8  energy,q,rxyz(3),a(3,3),b(3,3),volume
+      real*8  frac(3),aa,bb,cc,pi,d2,alpha,beta,gmma
+
+      character*255 rtdb_name,geom_name
+      character*2   symbol
+      character*16  t,name
+      character*26 dd
+
+      integer bead_rtdb
+      common /bead_list/ bead_rtdb
+
+*     **** external functions ****
+      integer     inp_strlen,size_bead_list
+      character*7 bead_index_name
+      external    inp_strlen,size_bead_list
+      external    bead_index_name
+
+
+      taglen    = inp_strlen(tag)
+      nbeads    = size_bead_list(tag)
+      value = geom_create(geom,'bead_tmp_cif')
+      do i=1,nbeads
+
+         rtdb_name = tag(1:taglen)//bead_index_name(i)//':geom_name'
+         if (.not.rtdb_cget(bead_rtdb,rtdb_name,1,geom_name))
+     >      geom_name = tag(1:taglen)//bead_index_name(i)//':geom'
+         geomlen = inp_strlen(geom_name)
+         value = value.and.geom_rtdb_load(bead_rtdb,
+     >                             geom,geom_name(1:geomlen))
+         value = value.and.geom_ncent(geom,nion)
+
+         call amatrix_get_bead_list(tag,i,a)
+
+         b(1,1) = a(2,2)*a(3,3) - a(3,2)*a(2,3)
+         b(2,1) = a(3,2)*a(1,3) - a(1,2)*a(3,3)
+         b(3,1) = a(1,2)*a(2,3) - a(2,2)*a(1,3)
+         b(1,2) = a(2,3)*a(3,1) - a(3,3)*a(2,1)
+         b(2,2) = a(3,3)*a(1,1) - a(1,3)*a(3,1)
+         b(3,2) = a(1,3)*a(2,1) - a(2,3)*a(1,1)
+         b(1,3) = a(2,1)*a(3,2) - a(3,1)*a(2,2)
+         b(2,3) = a(3,1)*a(1,2) - a(1,1)*a(3,2)
+         b(3,3) = a(1,1)*a(2,2) - a(2,1)*a(1,2)
+         volume = a(1,1)*b(1,1)
+     >          + a(2,1)*b(2,1)
+     >          + a(3,1)*b(3,1)
+
+         volume = 1.0d0/volume
+         call dscal(9,volume,b,1)
+
+*        **** determine a,b,c,alpha,beta,gmma ***
+         pi = 4.0d0*datan(1.0d0)
+         aa = dsqrt(a(1,1)**2 + a(2,1)**2 +a(3,1)**2)
+         bb = dsqrt(a(1,2)**2 + a(2,2)**2 +a(3,2)**2)
+         cc = dsqrt(a(1,3)**2 + a(2,3)**2 +a(3,3)**2)
+
+         d2 = (a(1,2)-a(1,3))**2+(a(2,2)-a(2,3))**2+(a(3,2)-a(3,3))**2
+         alpha = (bb*bb + cc*cc - d2)/(2.0d0*bb*cc)
+         alpha = dacos(alpha)*180.0d0/pi
+
+         d2 = (a(1,3)-a(1,1))**2+(a(2,3)-a(2,1))**2+(a(3,3)-a(3,1))**2
+         beta = (cc*cc + aa*aa - d2)/(2.0d0*cc*aa)
+         beta = dacos(beta)*180.0d0/pi
+
+         d2 = (a(1,1)-a(1,2))**2+(a(2,1)-a(2,2))**2+(a(3,1)-a(3,2))**2
+         gmma = (aa*aa + bb*bb - d2)/(2.0d0*aa*bb)
+         gmma = dacos(gmma)*180.0d0/pi
+
+         if (ga_nodeid().eq.0) then
+
+            call util_date(dd)
+            write(luout,1200)
+            write(luout,1210) dd(1:24)
+            write(luout,1211)
+
+            write(luout,1220) aa * 0.529177d0
+            write(luout,1221) bb * 0.529177d0
+            write(luout,1222) cc * 0.529177d0
+            write(luout,1223) alpha
+            write(luout,1224) beta
+            write(luout,1225) gmma
+
+            write(luout,1230)
+
+            write(luout,1240)
+            write(luout,1241)
+            write(luout,1243)
+            write(luout,1244)
+            write(luout,1245)
+
+
+         end if
+         do ii=1,nion       
+            value = value.and.geom_cent_get(geom,ii,t,rxyz,q)
+            value = value.and. geom_tag_to_element(t,symbol,name,q)
+            frac(1) = b(1,1)*rxyz(1)
+     >              + b(2,1)*rxyz(2)
+     >              + b(3,1)*rxyz(3)
+            frac(2) = b(1,2)*rxyz(1)
+     >              + b(2,2)*rxyz(2)
+     >              + b(3,2)*rxyz(3)
+            frac(3) = b(1,3)*rxyz(1)
+     >              + b(2,3)*rxyz(2)
+     >              + b(3,3)*rxyz(3)
+            if (ga_nodeid().eq.0) write(luout,1250) symbol,frac
+         end do
+
+      end do
+      value = value.and.geom_destroy(geom)
+
+
+      return
+ 1200 FORMAT('data_nwchem_pspw')
+ 1210 FORMAT(/'_audit_creation_date   ',A)
+ 1211 FORMAT(
+     > '_audit_creation_method    generated by PSPW module of NWChem')
+
+ 1220 FORMAT(//'_cell_length_a   ', F16.4)
+ 1221 FORMAT(  '_cell_length_b   ', F16.4)
+ 1222 FORMAT(  '_cell_length_c   ', F16.4)
+ 1223 FORMAT(  '_cell_angle_alpha', F16.4)
+ 1224 FORMAT(  '_cell_angle_beta ', F16.4)
+ 1225 FORMAT(  '_cell_angle_gamma', F16.4)
+
+ 1230 FORMAT(/'_symmetry_space_group_name_H-M     P1  ')
+
+ 1240 FORMAT(/'loop_')
+ 1241 FORMAT('_atom_site_type_symbol')
+ 1242 FORMAT('_atom_site_label')
+ 1243 FORMAT('_atom_site_fract_x')
+ 1244 FORMAT('_atom_site_fract_y')
+ 1245 FORMAT('_atom_site_fract_z')
+
+c 1250 FORMAT(A2,6X,I4,3x,3F14.6)
+ 1250 FORMAT(A2,6X,3F14.6)
       end
 
 

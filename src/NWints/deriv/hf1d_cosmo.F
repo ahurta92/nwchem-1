@@ -1,7 +1,7 @@
       Subroutine hf1d_cosmo(
      &       Axyz,Aprims,Acoefs,NPA,NCA,La,ictrA,
      &       Bxyz,Bprims,Bcoefs,NPB,NCB,Lb,ictrB,
-     &       Cxyz,zan,
+     &       Cxyz,zan,zeros,ncenters,
      &       bNAI,Nint,
      &       canAB,dryrun,W0,maxW0)
 c $Id$
@@ -44,12 +44,15 @@ c     Implicit integer (i-n)
 
 c--> Cartesian Coordinates, Primitives & Contraction Coefficients
 
+      Integer NPA, NCA, NPB, NCB, NCP
       Double precision Axyz(3),Aprims(NPA),Acoefs(NPA,NCA)
       Double precision Bxyz(3),Bprims(NPB),Bcoefs(NPB,NCB)
 
 c--> Nuclear Cartesian Coordinates, Charges & Inverse Exponents
 
-      Double precision Cxyz(3), zan
+      Integer ncenters
+      Double precision Cxyz(3,ncenters), zan(ncenters)
+      Double precision zeros(ncenters)
 
 c--> Blocks of Overlap, Kinetic Energy & Nuclear Attraction Integrals
 
@@ -66,13 +69,14 @@ c--> Scratch Space.
 c--> Other stuff
 
       Integer lprod, mxd, Lp3, Lp, Nder, NPP
-      Integer NPA, NCA, NPB, NCB, NCP
       Integer La, Lb, Li, ictrA, ictrB
       Integer i_VA, i_VB, i_VP, i_VR, i_Ri, i_Rj, i_RS
       Integer MaxMem, nd
       Integer i_P, i_R0, i_top, i_pf, i_PC, i_R0C, i_left, i_right
       Integer i_IPAIRp, i_ESp, i_ALPHAp, i_Ep
       Integer i_IJK, i_ff
+
+      double precision invnuc(ncenters)
 
       Data inder1/ 1,0,0,
      &             0,1,0,
@@ -84,6 +88,7 @@ c--> Other stuff
      &             0,0,0,1,0,0,
      &             0,0,0,0,1,0,
      &             0,0,0,0,0,1 /
+
 c
 c Compute gradient of the overlap, kinetic energy, and nuclear attraction 
 c integrals for 2 shells of contracted Gaussians functions.
@@ -222,7 +227,7 @@ c Assign scratch space.
        i_R0  = i_Ep  + 3*NPP*(MXD+1)*lprod
        i_IJK = i_R0  + NPP*Lp3
        i_R0C = i_IJK + (Lp+1)**3
-       i_P   = i_R0C + NPP*Lp3*1
+       i_P   = i_R0C + 0
        i_RS  = i_P   + NPP*3
        i_PC  = i_RS  + NPP
        i_ff  = i_PC  + NPP*3
@@ -255,10 +260,10 @@ c Assign scratch space.
        if (dryrun) then
          MaxMem = max(MaxMem, i_top)
        else
-         call hf1mkr(Axyz,Bxyz,Cxyz,zan,0.0d0,1,
+         call hf1mkr(Axyz,Bxyz,Cxyz,zan,zeros,ncenters,
      &          W0(i_ALPHAp),W0(i_P),W0(i_RS),W0(i_PC),W0(i_ff),
      &          W0(i_Rj),W0(i_R0),W0(i_R0C),W0(i_IJK),
-     &          NPP,Lp,Lp3,.TRUE.)
+     &          NPP,Lp,Lp3,.false.)
 c
 c        Compute the 1-electron - nuclear attraction contributions of
 c        the gradient wrt the nuclear coordinates

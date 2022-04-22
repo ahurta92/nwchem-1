@@ -2,9 +2,16 @@
 
 include ../../config/makefile.h
 
-    SUBDIRS = module source
+ifdef USE_SIMINT
+ifndef SIMINT_SKIPBLD
+    SUBDIRS = libsimint_source
+endif
+endif
+    SUBDIRS += module source
+
 
 
 include ../../config/makelib.h
+
 
 

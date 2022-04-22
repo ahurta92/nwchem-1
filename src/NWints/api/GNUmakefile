@@ -4,6 +4,7 @@
 ifeq ($(USE_TEXAS),YEP)
       LIB_DEFINES = -DUSE_TEXAS
 endif
+include ../../config/makefile.h
 ifdef USE_SIMINT
       LIB_DEFINES += -DUSE_SIMINT
 
@@ -50,7 +51,8 @@ endif
           int_giaotv10.o int_giaobq10.o int_giao_2e.o  int_pso.o	\
           int_dso.o intd_1epot.o \
           intd_1epot_cosmo.o \
-          int_veloc.o    int_angmom.o   int_giaos100.o
+          int_veloc.o    int_angmom.o   int_giaos100.o \
+	  cosmo_screen.o
 
     OBJ_OPTIMIZE = int_hf1sp.o int_l2e4c.o intb_init4c.o intb_2e4c.o \
                    int_2e4c.o
@@ -63,7 +65,6 @@ endif
 intpd_1eov.F intpd_2e3c.F intpd_1eke.F intpd_2e2c.F intpd_2e3ct.F
 
 
-include ../../config/makefile.h
 include ../../config/makelib.h
 
 justo:	$(OBJ)	$(OBJ_OPTIMIZE)

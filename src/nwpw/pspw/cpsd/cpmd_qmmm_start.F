@@ -584,7 +584,7 @@ c         end if
            icount_shift = icount_shift + 1
            end do
   100      continue
-#if defined(FUJITSU_SOLARIS) || defined(PSCALE) || defined(__crayx1) || defined(GCC46)
+#if defined(FUJITSU) || defined(PSCALE) || defined(__crayx1) || defined(GCC46)
            backspace 31
 #endif
          else
@@ -644,10 +644,10 @@ c         end if
  1100 FORMAT(//)
  1110 FORMAT(10X,'================ input data ========================')
  1111 FORMAT(/' number of processors used:',I3)
- 1112 FORMAT( ' parallel mapping         :     1d slab')
- 1113 FORMAT( ' parallel mapping         :  2d hilbert')
+ 1112 FORMAT( ' parallel mapping         :     1d-slab')
+ 1113 FORMAT( ' parallel mapping         :  2d-hilbert')
  1115 FORMAT(/' options:')
- 1118 FORMAT( ' parallel mapping         :   2d hcurve')
+ 1118 FORMAT( ' parallel mapping         :   2d-hcurve')
  1121 FORMAT(5X,' boundary conditions  = ',A,'(version', I1,')')
  1130 FORMAT(5X,' electron spin        = ',A)
  1131 FORMAT(5X,' exchange-correlation = ',A)

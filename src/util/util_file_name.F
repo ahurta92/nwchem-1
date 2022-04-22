@@ -454,7 +454,7 @@ C$Id$
 #include "errquit.fh"
 #include "inp.fh"
 #include "global.fh"
-#include "tcgmsg.fh"
+#include "mafdecls.fh"
 #include "msgids.fh"
 #include "cfileprefix.fh"
 #include "util.fh"
@@ -472,6 +472,7 @@ c
       integer nkeys, istart, iend
       parameter (nkeys = 7)
       logical iocheckk
+      integer mitob1
       character*16 keys(nkeys), field
       data keys/'start','restart','continue',
      &    'scratch_dir','permanent_dir', 'ecce_print',
@@ -491,12 +492,13 @@ c     permanent_dir <read rest of line as character string>
 c
 c     Only process 0 reads ... everyone else jumps to the broadcast
 c
+      mitob1=MA_sizeof(MT_INT,1,MT_BYTE)
       scratch_dir = ' '
       permanent_dir = ' '
       call util_set_default_scratch_dir(scratch_dir)
       call util_set_default_permanent_dir(permanent_dir)
       iocheckk=.true.
-#if defined(CRAYXT) || defined(BGP) || defined(BGQ)
+#if defined(NOFSCHECK) || defined(CRAYXT) || defined(BGP) || defined(BGQ)
 c     on catamount all fs are parallel, therefore we need only node0
 c     on BGP/BGQ all fs are parallel, therefore we need only node0
       iocheckk=ga_nodeid().eq.0
@@ -582,8 +584,8 @@ c
 c
 c     Broadcast start options to everyone else
 c
-10000 call ga_brdcst(Msg_StartUp, ostartup, mitob(1), 0)
-      call ga_brdcst(Msg_StartUp, ocontinue, mitob(1), 0)
+10000 call ga_brdcst(Msg_StartUp, ostartup, mitob1, 0)
+      call ga_brdcst(Msg_StartUp, ocontinue, mitob1, 0)
       call util_char_ga_brdcst(Msg_startup, file_prefix, 0)
       call util_char_ga_brdcst(Msg_startup, scratch_dir, 0)
       call util_char_ga_brdcst(Msg_startup, permanent_dir, 0)
@@ -724,7 +726,7 @@ c
       logical util_file_parse_dir
       external util_file_parse_dir
       character*1024 envscr
-      integer istart,util_getblnk,lencrd
+      integer util_getblnk
       external util_getblnk
 c
 c     return the name of the scratch/permanent directory for the
@@ -782,10 +784,14 @@ c
       integer fd
       character*8 fstype
       integer l1megabyte,i_k,l_k,nuse_fail,nattpt,
-     ,     availmin
+     ,     availmax
       character*255 dirscr
       parameter(l1megabyte=2*1000000)
-      logical util_file_parse_dir,oprint
+      integer fiftytb! 50TB
+      parameter(fiftytb=50*1024*1024)
+      logical util_file_parse_dir,oprint,io_node
+      integer ppn,toolarge
+      double precision my8mega
       external util_file_parse_dir
 c
       oprint=util_print('available disk',print_high)
@@ -798,36 +804,61 @@ c
       nattpt=0
       avail0=0
       avail1=0
+      toolarge=0
 #ifdef NOIO
       avail0=10**8
       nuse=ga_nnodes()
       avail1=-16d0*nuse+avail0
 #else
-1025  call util_file_name('junk',.true.,.true.,mine)
-      ierr=eaf_delete(mine)
-      ierr=eaf_open(mine, eaf_rw, fd)
+      call util_getppn(ppn)
+      io_node=mod(me,ppn).eq.0
+      if(io_node) then
+         call util_file_name('junk',.true.,.true.,mine)
+         ierr=eaf_delete(mine)
+         ierr=eaf_open(mine, eaf_rw, fd)
+         ierr = eaf_stat(mine, avail0, fstype)
+         if(avail0.gt.fiftytb) toolarge=1
+      else
+         ierr=0
+      endif
+      call ga_igop(msg_utscr,toolarge,1,'+')
+      if(io_node.and.oprint) 
+     c     write(6,*) ga_nodeid(),': toolarge ',toolarge
+      if(toolarge.gt.0) then
+         nuse=ga_nnodes()
+      else
+ 1025 call ga_sync()
       if(ierr.ne.0) call errquit('utilscratchavail: eaf_open',ierr,
-     &       DISK_ERR)
-      call ga_sync()
-      ierr = eaf_stat(mine, avail0, fstype)
+     &     DISK_ERR)
+      if (io_node) then
 c
-c     now write 5M of doubles
+c     now write 16M of doubles
 c
       if (.not.ma_push_get(MT_Dbl,l1megabyte,'cc',l_k,i_k))
      &   call errquit('utilfname: cannot allocate ',0, MA_ERR)
       call dcopy(l1megabyte,0d0,0,dbl_mb(i_k),1)
       ierr = eaf_write(fd, 0d0, dbl_mb(i_k),8*l1megabyte)
+      my8mega=8*l1megabyte/1024d0/1024d0
       if (.not.ma_pop_stack(l_k))
      &   call errquit('utilfname: cannot deallocate ',0, MA_ERR)
       ierr=eaf_close(fd)
+      endif
       call ga_sync()
-      ierr = eaf_stat(mine, avail1, fstype)
-      if (ierr .ne. 0) call errquit('util_scratch_avail: eaf_stat',ierr,
-     &       DISK_ERR)
-      ierr=eaf_delete(mine)
-      nuse=nint((avail0-avail1)/16d0)
       nuse_fail=0
-      if (nuse .le. 0) nuse_fail= 1
+      if(io_node) then
+         ierr = eaf_stat(mine, avail1, fstype)
+         if (ierr .ne. 0) call errquit(
+     U        'util_scratch_avail: eaf_stat',ierr,DISK_ERR)
+         ierr=eaf_delete(mine)
+         nuse=nint((avail0-avail1)/my8mega)
+         if (nuse .le. 0) then
+            write(6,*) ' avail0,avail1,avail0-avail1 ',
+     R           avail0,avail1,avail0-avail1
+            nuse_fail= 1
+         endif
+      else
+         nuse=0
+      endif
       call ga_igop(msg_utscr,nuse_fail,1,'+')
       if(nuse_fail.ne.0) then
         if(oprint.and.ga_nodeid().eq.0) write(luout,*) ' negative nuse'
@@ -845,27 +876,28 @@ c
           goto 1025
         endif
       endif
+      call ga_igop(msg_utscr,nuse,1,'+')
+      nuse=nuse*ppn
+      endif
+c     io_node.eq.f => avail0=0
+      call ga_igop(msg_utscr2,avail0,1,'max')
 #endif
-c
-c     get min disk space (if you have thin & fat nodes)
-c
-      availmin=avail0/nuse
-      call ga_igop(msg_utscr2,availmin,1,'min')
       if(oprint) then
          call util_directory_name(dirscr, .true., ga_nodeid())
-         write(luout,11) ga_nodeid(),nuse,(avail0-avail1)/16d0,
-     .     availmin,avail0/nuse,
+         write(luout,11) ga_nodeid(),nuse,
+     .     avail0/nuse,
      .     dirscr(1:inp_strlen(dirscr))
- 11      format(i4,': nuse=',i4,'(',f6.1,') avail=',i9,'Mb (out of',
-     .   i9,'Mb) on ',A)
+ 11      format(i4,': nuse=',i4,' avail=',i9,
+     .   'Mb on ',A)
       endif
 c
 c     now eaf_stat returns Mb instead of kb
 c
 !      avail=avail0*1024
 
-c     
-      util_scratch_dir_avail_for_me = 1024d0*dble(availmin)
+c
+      availmax=avail0/nuse
+      util_scratch_dir_avail_for_me = 1024d0*dble(availmax)
 c
       end
       subroutine util_file_name_resolve(filename, oscratch)
@@ -1006,7 +1038,7 @@ c
 #include "inp.fh"
       character*(*) dname
 c
-      double precision availkb
+      integer availkb
       character*20 fstype
 c
       util_find_dir=eaf_stat(dname(1:inp_strlen(dname)),
